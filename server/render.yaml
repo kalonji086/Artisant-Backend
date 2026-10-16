@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: artisans-api
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18.0.0
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        value: https://zfhejynzmhhzzzmadgli.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: EXPO_ACCESS_TOKEN
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
