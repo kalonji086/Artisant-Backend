@@ -3,10 +3,12 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  // Base '/artisants-admin/' pour GitHub Pages (https://kalonji086.github.io/artisants-admin/)
-  base: '/artisants-admin/',
+  // Base '/admin/' : le dashboard est servi par le backend sous https://<api>/admin/
+  base: '/admin/',
   plugins: [react(), tailwindcss()],
+  build: { outDir: '../server/public/admin', emptyOutDir: true },
   server: {
     port: 5173,
   },
 });
+
