@@ -1,8 +1,9 @@
-const SibApiV3Sdk = require('sib-api-v3-sdk');
+import { logger } from '../lib/logger';
+import SibApiV3Sdk = require('sib-api-v3-sdk');
 
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications['api-key'];
-apiKey.apiKey = process.env.BREVO_API_KEY;
+const apiKey = defaultClient.authentications['api-key'] as { apiKey: string };
+apiKey.apiKey = process.env.BREVO_API_KEY || '';
 
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
@@ -48,10 +49,10 @@ export const sendEmail = async (to: string, template: { subject: string, htmlCon
 
   try {
     const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log('Email envoyé avec succès. MessageId:', data.messageId);
+    logger.info('Email envoyé avec succès. MessageId:', data.messageId);
     return data;
   } catch (error) {
-    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    logger.error('Erreur lors de l\'envoi de l\'email:', error);
     throw error;
   }
 };

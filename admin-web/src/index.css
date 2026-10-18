@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  /* Couleurs de marque ARTISANTS (alignées sur l'app mobile) */
+  --color-brand: #208aef;
+  --color-brand-dark: #1871c4;
+  --color-brand-light: #e8f4fe;
+  --color-ink: #101828;
+  --color-muted: #60646c;
+  --color-surface: #f0f0f3;
+}
+
+html {
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

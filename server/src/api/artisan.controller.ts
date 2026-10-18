@@ -49,7 +49,7 @@ export const updateArtisanProfile = async (req: Request, res: Response) => {
   }
 
   // Validation Zod du corps de requête
-  const validationResult = updateArtisanProfileSchema.safeParse(req);
+  const validationResult = updateArtisanProfileSchema.safeParse(req.body);
   if (!validationResult.success) {
     return res.status(400).json({
       error: 'Données de requête invalides',
@@ -60,7 +60,7 @@ export const updateArtisanProfile = async (req: Request, res: Response) => {
     });
   }
 
-  const updates = validationResult.data.body;
+  const updates = validationResult.data;
 
   try {
     const { data, error } = await supabase

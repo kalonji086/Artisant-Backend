@@ -13,7 +13,7 @@ export const createQuoteRequest = async (req: Request, res: Response) => {
   }
 
   // Validation Zod du corps de requête
-  const validationResult = createQuoteSchema.safeParse(req);
+  const validationResult = createQuoteSchema.safeParse(req.body);
   if (!validationResult.success) {
     return res.status(400).json({
       error: 'Données de requête invalides',
@@ -24,7 +24,7 @@ export const createQuoteRequest = async (req: Request, res: Response) => {
     });
   }
 
-  const { artisan_id, service_id, description } = validationResult.data.body;
+  const { artisan_id, service_id, description } = validationResult.data;
 
   // Vérifier que l'artisan n'est pas le client lui-même
   if (artisan_id === user.id) {
@@ -78,7 +78,7 @@ export const updateQuoteStatus = async (req: Request, res: Response) => {
   }
 
   // Validation Zod
-  const validationResult = updateQuoteStatusSchema.safeParse(req);
+  const validationResult = updateQuoteStatusSchema.safeParse(req.body);
   if (!validationResult.success) {
     return res.status(400).json({
       error: 'Données de requête invalides',
@@ -89,7 +89,7 @@ export const updateQuoteStatus = async (req: Request, res: Response) => {
     });
   }
 
-  const { status, price } = validationResult.data.body;
+  const { status, price } = validationResult.data;
 
   try {
     // Vérifier que le devis existe et récupérer ses infos

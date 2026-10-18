@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { createCorrelationLogger } from '../lib/logger';
 
 export const correlationIdMiddleware = (req: Request, res: Response, next: NextFunction) => {

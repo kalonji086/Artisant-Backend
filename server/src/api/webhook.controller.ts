@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logger } from '../lib/logger';
 import { EmailTemplates, sendEmail } from '../services/email.service';
 
 export const handleSupabaseWebhook = async (req: Request, res: Response) => {
@@ -14,9 +15,9 @@ export const handleSupabaseWebhook = async (req: Request, res: Response) => {
       } else {
         await sendEmail(email, EmailTemplates.WELCOME_CLIENT(full_name));
       }
-      console.log(`Mail de bienvenue envoyé à ${email}`);
+      logger.info(`Mail de bienvenue envoyé à ${email}`);
     } catch (error) {
-      console.error('Erreur webhook email:', error);
+      logger.error('Erreur webhook email:', error);
     }
   }
 
