@@ -4,7 +4,7 @@ import { Spinner } from '../components/ui';
 import { useAdminAuth } from '../context/AdminAuthContext';
 
 export default function Login() {
-  const { session, isAdmin, isLoading, signIn } = useAdminAuth();
+  const { session, isAdmin, profileReady, signIn } = useAdminAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -12,7 +12,8 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isLoading && session && isAdmin) {
+  // Si une session existe et que le profil est prêt, rediriger si admin
+  if (session && profileReady && isAdmin) {
     return <Navigate to="/" replace />;
   }
 

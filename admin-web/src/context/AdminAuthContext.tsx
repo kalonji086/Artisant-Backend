@@ -22,6 +22,7 @@ interface AdminAuthContextType {
   profile: AdminProfile | null;
   isLoading: boolean;
   isAdmin: boolean;
+  profileReady: boolean;
   /** Retourne null si OK, sinon un message d'erreur utilisateur. */
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
@@ -47,6 +48,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileReady, setProfileReady] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -57,7 +59,11 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         if (!active) return;
         setSession(data.session);
         if (data.session?.user) {
-          setProfile(await fetchProfile(data.session.user.id));
+          const fetched = await fetchProfile(data.session.user.id);
+          if (active) {
+            setProfile(fetched);
+            setProfileReady(true);
+          }
         }
       } finally {
         if (active) setIsLoading(false);
@@ -68,15 +74,22 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        void fetchProfile(newSession.user.id).then(setProfile);
+        void fetchProfile(newSession.user.id).then((fetched) => {
+          if (active) {
+            setProfile(fetched);
+            setProfileReady(true);
+          }
+        });
       } else {
         setProfile(null);
+        setProfileReady(true);
       }
     });
 
+    const unsub = (subscription as unknown as { unsubscribe: () => void }).unsubscribe;
     return () => {
       active = false;
-      subscription.subscription.unsubscribe();
+      if (unsub) unsub();
     };
   }, []);
 
@@ -96,12 +109,14 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
 
     setProfile(fetched);
+    setProfileReady(true);
     return null;
   }, []);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setProfileReady(true);
   }, []);
 
   const value = useMemo(
@@ -110,10 +125,11 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       profile,
       isLoading,
       isAdmin: profile?.role === 'admin',
+      profileReady,
       signIn,
       signOut,
     }),
-    [session, profile, isLoading, signIn, signOut]
+    [session, profile, isLoading, profileReady, signIn, signOut]
   );
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;

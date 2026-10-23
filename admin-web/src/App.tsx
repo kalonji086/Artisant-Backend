@@ -19,10 +19,10 @@ function FullscreenLoader() {
 
 /** Garde de route : session active + rôle admin requis. */
 function Protected({ children }: { children: ReactNode }) {
-  const { isLoading, session, isAdmin } = useAdminAuth();
+  const { isLoading, session, isAdmin, profileReady } = useAdminAuth();
   const location = useLocation();
 
-  if (isLoading) return <FullscreenLoader />;
+  if (isLoading || !profileReady) return <FullscreenLoader />;
   if (!session || !isAdmin) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
