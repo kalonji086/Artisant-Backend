@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -113,6 +114,17 @@ app.use(`${API_VERSION}/webhooks`, webhookRoutes);
 
 app.get('/', (_req, res) => {
   res.json({ message: 'Bienvenue sur l\'API ARTISANTS 🚀', status: 'OK', apiVersion: API_VERSION });
+});
+
+// ============================================
+// 5bis. Dashboard admin statique (build admin-web)
+// Servi en same-origin → aucune config CORS requise
+// ============================================
+const adminDistPath = path.join(__dirname, '..', 'public', 'admin');
+app.use('/admin', express.static(adminDistPath));
+// Fallback SPA : toutes les sous-routes /admin/* retournent index.html
+app.get('/admin/*', (_req, res) => {
+  res.sendFile(path.join(adminDistPath, 'index.html'));
 });
 
 // Swagger documentation
