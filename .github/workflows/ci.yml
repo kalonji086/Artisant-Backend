@@ -8,7 +8,7 @@ on:
 
 env:
   SERVER_DIR: ./server
-  FRONTEND_DIR: ./Artisant/Artisant
+  FRONTEND_DIR: ./admin-web
 
 jobs:
   backend:
@@ -24,15 +24,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: ${{ env.SERVER_DIR }}/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript check
-        run: npx tsc --noEmit
+      - name: Build and type-check
+        run: npm run build
 
   frontend:
     name: Frontend - Build & TypeScript
@@ -47,15 +47,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: ${{ env.FRONTEND_DIR }}/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript check
-        run: npx tsc --noEmit
+      - name: Build and type-check
+        run: npm run build
 
   lint:
     name: Lint (both projects)
@@ -67,8 +67,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '22'
 
       - name: Lint backend
         working-directory: ./server
@@ -76,8 +75,8 @@ jobs:
           npm ci
           npx eslint src/ --ext .ts || echo "ESLint not configured, skipping"
 
-      - name: Lint frontend
-        working-directory: ./Artisant/Artisant
+      - name: Lint admin dashboard
+        working-directory: ./admin-web
         run: |
-          npm ci
+          npm ci --legacy-peer-deps
           npx eslint src/ --ext .ts,.tsx || echo "ESLint not configured, skipping"

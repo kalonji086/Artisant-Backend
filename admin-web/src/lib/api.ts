@@ -2,7 +2,9 @@ import axios from 'axios';
 import { supabase } from './supabase';
 import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, Quote } from '../types';
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:3000/api/v1';
+const API_URL =
+  (import.meta.env.VITE_API_URL as string | undefined) ||
+  (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : '/api/v1');
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -57,4 +59,3 @@ export const apiErrorMessage = (err: unknown, fallback: string): string => {
 };
 
 export default apiClient;
-

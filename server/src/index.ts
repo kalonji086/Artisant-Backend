@@ -122,6 +122,9 @@ app.get('/', (_req, res) => {
 // ============================================
 const adminDistPath = path.join(__dirname, '..', 'public', 'admin');
 app.use('/admin', express.static(adminDistPath));
+app.get(['/admin', '/admin/'], (_req, res) => {
+  res.sendFile(path.join(adminDistPath, 'index.html'));
+});
 // Fallback SPA : toutes les sous-routes /admin/* retournent index.html
 app.get('/admin/*', (_req, res) => {
   res.sendFile(path.join(adminDistPath, 'index.html'));
