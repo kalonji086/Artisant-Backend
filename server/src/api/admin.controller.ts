@@ -42,29 +42,33 @@ const buildMonthKeys = (months: number): string[] => {
   return keys;
 };
 
+const getMonthRange = (key: string) => {
+  const [year, month] = key.split('-').map(Number);
+  return {
+    from: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
+    to: new Date(Date.UTC(year, month, 1)).toISOString(),
+  };
+};
+
 /**
  * GET /api/v1/admin/stats
  * Statistiques agrégées du tableau de bord principal.
  */
 export const getAdminStats = async (_req: Request, res: Response) => {
   try {
-    const sixMonthsAgo = new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1).toISOString();
-
+    const monthKeys = buildMonthKeys(6);
     const [
       totalProfilesRes,
       clientsRes,
       artisansRes,
       activeArtisansRes,
       quotesTotalRes,
-      quotesRowsRes,
       jobsRes,
       categoriesRes,
       pendingRequestsRes,
       recentProfilesRes,
       recentQuotesRes,
-      servicesRes,
       categoriesListRes,
-      signupsRes,
     ] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'client'),
@@ -75,7 +79,6 @@ export const getAdminStats = async (_req: Request, res: Response) => {
         .eq('role', 'artisan')
         .eq('is_available', true),
       supabase.from('quotes').select('id', { count: 'exact', head: true }),
-      supabase.from('quotes').select('status'),
       supabase.from('jobs').select('id', { count: 'exact', head: true }),
       supabase.from('categories').select('id', { count: 'exact', head: true }),
       supabase.from('employer_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -89,41 +92,72 @@ export const getAdminStats = async (_req: Request, res: Response) => {
         .select('id, status, price, created_at, client_id, artisan_id')
         .order('created_at', { ascending: false })
         .limit(5),
-      supabase.from('artisan_services').select('category_id'),
       supabase.from('categories').select('id, name'),
-      supabase.from('profiles').select('created_at').gte('created_at', sixMonthsAgo),
     ]);
 
     const allResults = [
       totalProfilesRes, clientsRes, artisansRes, activeArtisansRes, quotesTotalRes,
-      quotesRowsRes, jobsRes, categoriesRes, pendingRequestsRes, recentProfilesRes,
-      recentQuotesRes, servicesRes, categoriesListRes, signupsRes,
+      jobsRes, categoriesRes, pendingRequestsRes, recentProfilesRes, recentQuotesRes,
+      categoriesListRes,
     ];
     const failed = allResults.find((r) => r.error);
     if (failed?.error) throw failed.error;
 
-    // Devis par statut
-    const quotesByStatus = QUOTE_STATUSES.map((status) => ({
+    const [quoteStatusResults, signupResults] = await Promise.all([
+      Promise.all(
+        QUOTE_STATUSES.map((status) =>
+          supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', status)
+        )
+      ),
+      Promise.all(
+        monthKeys.map((month) => {
+          const range = getMonthRange(month);
+          return supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .gte('created_at', range.from)
+            .lt('created_at', range.to);
+        })
+      ),
+    ]);
+
+    const aggregateError = [...quoteStatusResults, ...signupResults].find((result) => result.error);
+    if (aggregateError?.error) throw aggregateError.error;
+
+    const quotesByStatus = QUOTE_STATUSES.map((status, index) => ({
       status,
-      count: quotesRowsRes.data?.filter((q) => q.status === status).length ?? 0,
+      count: quoteStatusResults[index].count ?? 0,
+    }));
+    const signupsByMonth = monthKeys.map((month, index) => ({
+      month,
+      count: signupResults[index].count ?? 0,
     }));
 
-    // Inscriptions par mois (6 derniers mois, mois vides inclus)
-    const signupsByMonth = buildMonthKeys(6).map((month) => ({ month, count: 0 }));
-    for (const row of signupsRes.data ?? []) {
-      if (!row.created_at) continue;
-      const d = new Date(row.created_at);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const bucket = signupsByMonth.find((m) => m.month === key);
-      if (bucket) bucket.count += 1;
-    }
+    const categories = categoriesListRes.data ?? [];
+    const serviceCountResults = await Promise.all([
+      ...categories.map((category) =>
+        supabase
+          .from('artisan_services')
+          .select('category_id', { count: 'exact', head: true })
+          .eq('category_id', category.id)
+      ),
+      supabase
+        .from('artisan_services')
+        .select('category_id', { count: 'exact', head: true })
+        .is('category_id', null),
+    ]);
+    const serviceError = serviceCountResults.find((result) => result.error);
+    if (serviceError?.error) throw serviceError.error;
 
-    // Services par catégorie
-    const categoryNames = new Map((categoriesListRes.data ?? []).map((c) => [c.id, c.name]));
+    const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
     const serviceCounts = new Map<string, number>();
-    for (const row of servicesRes.data ?? []) {
-      const name = (row.category_id && categoryNames.get(row.category_id)) || 'Non classé';
-      serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + 1);
+    categories.forEach((category, index) => {
+      const name = categoryNames.get(category.id) || 'Non classé';
+      serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + (serviceCountResults[index].count ?? 0));
+    });
+    const uncategorizedCount = serviceCountResults[categories.length].count ?? 0;
+    if (uncategorizedCount > 0) {
+      serviceCounts.set('Non classé', (serviceCounts.get('Non classé') ?? 0) + uncategorizedCount);
     }
     const servicesByCategory = Array.from(serviceCounts.entries())
       .map(([category, count]) => ({ category, count }))

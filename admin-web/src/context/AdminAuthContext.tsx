@@ -52,44 +52,55 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let authStateObserved = false;
+    let profileRequest = 0;
+
+    const applySession = (newSession: Session | null) => {
+      setSession(newSession);
+      setProfile(null);
+
+      if (!newSession?.user) {
+        profileRequest += 1;
+        setProfileReady(true);
+        return;
+      }
+
+      setProfileReady(false);
+      const requestId = ++profileRequest;
+      void fetchProfile(newSession.user.id).then((fetched) => {
+        if (active && requestId === profileRequest) {
+          setProfile(fetched);
+          setProfileReady(true);
+        }
+      });
+    };
 
     const init = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
         if (!active) return;
-        setSession(data.session);
-        if (data.session?.user) {
-          const fetched = await fetchProfile(data.session.user.id);
-          if (active) {
-            setProfile(fetched);
-            setProfileReady(true);
-          }
-        }
+        if (!authStateObserved) applySession(data.session);
+      } catch (error) {
+        console.warn('[admin-web] Impossible de restaurer la session:', error);
+        if (active && !authStateObserved) applySession(null);
       } finally {
         if (active) setIsLoading(false);
       }
     };
     void init();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      if (newSession?.user) {
-        void fetchProfile(newSession.user.id).then((fetched) => {
-          if (active) {
-            setProfile(fetched);
-            setProfileReady(true);
-          }
-        });
-      } else {
-        setProfile(null);
-        setProfileReady(true);
-      }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      authStateObserved = true;
+      applySession(newSession);
     });
 
-    const unsub = (subscription as unknown as { unsubscribe: () => void }).unsubscribe;
     return () => {
       active = false;
-      if (unsub) unsub();
+      profileRequest += 1;
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -102,9 +113,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         : `Connexion impossible : ${error.message}`;
     }
 
+    setProfileReady(false);
     const fetched = await fetchProfile(data.user.id);
     if (!fetched || fetched.role !== 'admin') {
       await supabase.auth.signOut();
+      setProfile(null);
+      setProfileReady(true);
       return "Accès réservé aux administrateurs : ce compte n'a pas le rôle admin.";
     }
 

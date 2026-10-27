@@ -31,6 +31,7 @@ export default function EmployerRequests() {
   const [error, setError] = useState<string | null>(null);
   const [decision, setDecision] = useState<DecisionTarget | null>(null);
   const [decisionLoading, setDecisionLoading] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
   const [flash, setFlash] = useState<Flash>(null);
 
   const load = useCallback(async () => {
@@ -63,6 +64,7 @@ export default function EmployerRequests() {
   const confirmDecision = async (notes: string) => {
     if (!decision) return;
     setDecisionLoading(true);
+    setDecisionError(null);
     try {
       const approved = decision.tone === 'approve';
       await AdminService.updateEmployerRequest(decision.request.id, {
@@ -75,11 +77,11 @@ export default function EmployerRequests() {
           ? `Demande de « ${decision.request.company_name} » approuvée — profil employeur activé.`
           : `Demande de « ${decision.request.company_name} » rejetée.`,
       });
+      setDecisionError(null);
       setDecision(null);
       await load();
     } catch (err) {
-      setFlash({ tone: 'error', message: apiErrorMessage(err, 'Mise à jour impossible.') });
-      setDecision(null);
+      setDecisionError(apiErrorMessage(err, 'Mise à jour impossible.'));
     } finally {
       setDecisionLoading(false);
     }
@@ -171,7 +173,10 @@ export default function EmployerRequests() {
                   <div className="flex shrink-0 gap-2">
                     <button
                       type="button"
-                      onClick={() => setDecision({ request, tone: 'approve' })}
+                      onClick={() => {
+                        setDecisionError(null);
+                        setDecision({ request, tone: 'approve' });
+                      }}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
                     >
                       <CheckIcon className="h-4 w-4" />
@@ -179,7 +184,10 @@ export default function EmployerRequests() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDecision({ request, tone: 'reject' })}
+                      onClick={() => {
+                        setDecisionError(null);
+                        setDecision({ request, tone: 'reject' });
+                      }}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3.5 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
                     >
                       <CloseIcon className="h-4 w-4" />
@@ -208,9 +216,13 @@ export default function EmployerRequests() {
         subtitle={
           decision ? `${decision.request.company_name} — ${decision.request.industry}` : undefined
         }
+        error={decisionError}
         confirmLabel={decision?.tone === 'approve' ? 'Approuver' : 'Rejeter'}
         loading={decisionLoading}
-        onClose={() => setDecision(null)}
+        onClose={() => {
+          setDecision(null);
+          setDecisionError(null);
+        }}
         onConfirm={(notes) => void confirmDecision(notes)}
       />
     </div>

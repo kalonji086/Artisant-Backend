@@ -21,13 +21,17 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const signInError = await signIn(email.trim(), password);
-    setSubmitting(false);
-
-    if (signInError) {
-      setError(signInError);
-    } else {
+    try {
+      const signInError = await signIn(email.trim(), password);
+      if (signInError) {
+        setError(signInError);
+        return;
+      }
       navigate('/', { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Connexion impossible. Réessayez.');
+    } finally {
+      setSubmitting(false);
     }
   };
 

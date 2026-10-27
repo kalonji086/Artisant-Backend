@@ -7,6 +7,7 @@ interface DecisionModalProps {
   tone: 'approve' | 'reject';
   title: string;
   subtitle?: string;
+  error?: string | null;
   confirmLabel: string;
   loading?: boolean;
   onClose: () => void;
@@ -19,6 +20,7 @@ export default function DecisionModal({
   tone,
   title,
   subtitle,
+  error,
   confirmLabel,
   loading = false,
   onClose,
@@ -52,6 +54,14 @@ export default function DecisionModal({
           {title}
         </h2>
         {subtitle ? <p className="mt-1 text-sm text-muted">{subtitle}</p> : null}
+        {error ? (
+          <p
+            role="alert"
+            className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          >
+            {error}
+          </p>
+        ) : null}
 
         <label className="mt-5 block text-sm font-medium text-ink" htmlFor="decision-notes">
           Note admin <span className="font-normal text-muted">(optionnelle)</span>
