@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard';
 import EmployerRequests from './pages/EmployerRequests';
 import Login from './pages/Login';
 import Quotes from './pages/Quotes';
+import Settings from './pages/Settings';
+import Emails from './pages/Emails';
 import Users from './pages/Users';
 
 function FullscreenLoader() {
@@ -45,6 +47,8 @@ export default function App() {
         <Route path="utilisateurs" element={<Users />} />
         <Route path="devis" element={<Quotes />} />
         <Route path="demandes-employeur" element={<EmployerRequests />} />
+        <Route path="emails" element={<Emails />} />
+        <Route path="parametres" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

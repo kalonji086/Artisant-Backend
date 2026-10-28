@@ -8,7 +8,9 @@ import {
   DocumentIcon,
   GridIcon,
   LogoutIcon,
+  MailIcon,
   MenuIcon,
+  SettingsIcon,
   UsersIcon,
 } from './icons';
 
@@ -24,6 +26,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/utilisateurs', label: 'Utilisateurs', icon: <UsersIcon className="h-5 w-5" /> },
   { to: '/devis', label: 'Devis', icon: <DocumentIcon className="h-5 w-5" /> },
   { to: '/demandes-employeur', label: 'Demandes employeur', icon: <BriefcaseIcon className="h-5 w-5" /> },
+  { to: '/emails', label: 'Envoi de mails', icon: <MailIcon className="h-5 w-5" /> },
+  { to: '/parametres', label: 'Paramètres', icon: <SettingsIcon className="h-5 w-5" /> },
 ];
 
 export default function Layout() {

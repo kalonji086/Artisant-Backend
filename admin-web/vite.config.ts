@@ -6,9 +6,9 @@ export default defineConfig({
   // Base '/admin/' : le dashboard est servi par le backend sous https://<api>/admin/
   base: '/admin/',
   plugins: [react(), tailwindcss()],
+  resolve: { extensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.mts', '.json'] },
   build: { outDir: '../server/public/admin', emptyOutDir: true },
   server: {
     port: 5173,
   },
 });
-

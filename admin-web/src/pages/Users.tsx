@@ -11,7 +11,6 @@ const ROLE_OPTIONS = [
   { value: '', label: 'Tous les rôles' },
   { value: 'client', label: 'Clients' },
   { value: 'artisan', label: 'Artisans' },
-  { value: 'admin', label: 'Admins' },
 ];
 
 const EMPTY_PAGE: Paginated<Profile> = {
@@ -63,7 +62,7 @@ export default function Users() {
     <div>
       <PageHeader
         title="Utilisateurs"
-        subtitle="Tous les comptes de la plateforme (clients, artisans, admins)"
+        subtitle="Comptes clients et artisans de la plateforme"
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">

@@ -5,7 +5,7 @@ import { updateEmployerRequestSchema } from '../lib/validation';
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
 const QUOTE_STATUSES = ['pending', 'accepted', 'rejected', 'completed'] as const;
-const PROFILE_ROLES = ['client', 'artisan', 'admin'] as const;
+const PROFILE_ROLES = ['client', 'artisan'] as const;
 const EMPLOYER_REQUEST_STATUSES = ['pending', 'approved', 'rejected'] as const;
 
 /** Extrait page/pageSize sûrs depuis la query string (bornés). */
@@ -70,7 +70,10 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       recentQuotesRes,
       categoriesListRes,
     ] = await Promise.all([
-      supabase.from('profiles').select('id', { count: 'exact', head: true }),
+      supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .in('role', PROFILE_ROLES),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'client'),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan'),
       supabase
@@ -85,6 +88,7 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       supabase
         .from('profiles')
         .select('id, full_name, role, avatar_url, created_at')
+        .in('role', PROFILE_ROLES)
         .order('created_at', { ascending: false })
         .limit(5),
       supabase
@@ -115,6 +119,7 @@ export const getAdminStats = async (_req: Request, res: Response) => {
           return supabase
             .from('profiles')
             .select('id', { count: 'exact', head: true })
+            .in('role', PROFILE_ROLES)
             .gte('created_at', range.from)
             .lt('created_at', range.to);
         })
@@ -219,6 +224,7 @@ export const getUsers = async (req: Request, res: Response) => {
         count: 'exact',
       });
 
+    query = query.in('role', PROFILE_ROLES);
     if (role) query = query.eq('role', role);
     if (search) query = query.or(`full_name.ilike.%${search}%,address.ilike.%${search}%`);
 

@@ -32,6 +32,28 @@ export const updateEmployerRequestSchema = z.object({
   admin_notes: z.string().max(1000, 'Les notes admin sont limitées à 1000 caractères').optional(),
 });
 
+export const updateAdminSettingsSchema = z.object({
+  platform_name: z.string().trim().min(2).max(80),
+  support_email: z.string().trim().email().max(254),
+  sender_name: z.string().trim().min(2).max(70),
+  sender_email: z.string().trim().email().max(254),
+  reply_to_email: z.union([z.string().trim().email().max(254), z.literal('')]),
+});
+
+export const adminEmailTestSchema = z.object({
+  to: z.string().trim().email().max(254),
+});
+
+export const adminEmailAudienceSchema = z.enum(['client', 'artisan']);
+
+export const adminEmailCampaignSchema = z.object({
+  audience: adminEmailAudienceSchema,
+  subject: z.string().trim().min(3).max(180),
+  body: z.string().trim().min(1).max(4000),
+  expectedRecipientCount: z.number().int().min(1).max(5000),
+  confirmed: z.literal(true),
+});
+
 // Middleware de validation Zod générique
 export const validate = (schema: z.ZodTypeAny) => {
   return (req: Request, res: Response, next: NextFunction) => {

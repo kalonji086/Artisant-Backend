@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
   getAdminStats,
   getEmployerRequests,
@@ -7,8 +8,23 @@ import {
   updateEmployerRequestStatus,
 } from './admin.controller';
 import { authenticate, requireAdmin } from '../middleware/auth';
+import {
+  getAdminSettings,
+  getEmailAudience,
+  getEmailCampaignHistory,
+  sendEmailCampaign,
+  sendEmailTest,
+  updateAdminSettings,
+} from './admin-mail.controller';
 
 const router = Router();
+const emailSendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop d’envois e-mail. Réessayez plus tard.' },
+});
 
 // Toutes les routes admin exigent : session valide + rôle 'admin'
 router.use(authenticate, requireAdmin);
@@ -30,6 +46,12 @@ router.use(authenticate, requireAdmin);
  *         description: Accès réservé aux administrateurs
  */
 router.get('/stats', getAdminStats);
+router.get('/settings', getAdminSettings);
+router.put('/settings', updateAdminSettings);
+router.get('/email/audience', getEmailAudience);
+router.get('/email/campaigns', getEmailCampaignHistory);
+router.post('/email/test', emailSendLimiter, sendEmailTest);
+router.post('/email/campaigns', emailSendLimiter, sendEmailCampaign);
 
 /**
  * @swagger
@@ -46,7 +68,7 @@ router.get('/stats', getAdminStats);
  *         description: Recherche sur nom ou adresse
  *       - in: query
  *         name: role
- *         schema: { type: string, enum: [client, artisan, admin] }
+ *          schema: { type: string, enum: [client, artisan] }
  *       - in: query
  *         name: page
  *         schema: { type: integer, default: 1 }
