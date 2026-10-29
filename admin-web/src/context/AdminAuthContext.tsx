@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseConfigError } from '../lib/supabase';
 
 export interface AdminProfile {
   id: string;
@@ -105,12 +105,18 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
+    if (supabaseConfigError) return supabaseConfigError;
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      return error.message === 'Invalid login credentials'
-        ? 'Email ou mot de passe incorrect.'
-        : `Connexion impossible : ${error.message}`;
+      if (error.message === 'Invalid login credentials') {
+        return 'Email ou mot de passe incorrect.';
+      }
+      if (/invalid api key/i.test(error.message)) {
+        return 'Clé API Supabase invalide. Vérifiez VITE_SUPABASE_ANON_KEY dans la configuration de déploiement, puis reconstruisez le dashboard.';
+      }
+      return `Connexion impossible : ${error.message}`;
     }
 
     setProfileReady(false);

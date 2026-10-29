@@ -24,6 +24,13 @@ npm run build          # tsc + vite build → dist/
 npm run preview
 ```
 
+Le dashboard embarque `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` au moment
+du build. En cas de message « API key invalid » après un déploiement, vérifier
+dans les variables d’environnement Render que `VITE_SUPABASE_ANON_KEY` contient
+la clé publique (anon ou publishable) du même projet que `VITE_SUPABASE_URL`,
+puis relancer un déploiement avec reconstruction. Ne jamais utiliser la clé
+`service_role` ou une clé `secret` dans le dashboard.
+
 ## Créer un compte admin
 
 1. Exécuter `supabase_migrations/001_admin_role.sql` dans le SQL Editor Supabase
