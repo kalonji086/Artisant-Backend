@@ -39,20 +39,6 @@ export const DocumentIcon = (props: IconProps) => (
   </svg>
 );
 
-export const MailIcon = (props: IconProps) => (
-  <svg {...base} {...props}>
-    <rect x="3" y="5" width="18" height="14" rx="2" />
-    <path d="m3 7 9 6 9-6" />
-  </svg>
-);
-
-export const SettingsIcon = (props: IconProps) => (
-  <svg {...base} {...props}>
-    <circle cx="12" cy="12" r="3" />
-    <path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" />
-  </svg>
-);
-
 export const BriefcaseIcon = (props: IconProps) => (
   <svg {...base} {...props}>
     <rect x="3" y="7" width="18" height="13" rx="2" />

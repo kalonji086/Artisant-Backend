@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Spinner } from '../components/ui';
 import { useAdminAuth } from '../context/AdminAuthContext';
+import { supabaseConfigError } from '../lib/supabase';
 
 export default function Login() {
   const { session, isAdmin, profileReady, signIn } = useAdminAuth();
@@ -55,6 +56,15 @@ export default function Login() {
             Réservé aux comptes disposant du rôle <strong>admin</strong>.
           </p>
 
+          {supabaseConfigError ? (
+            <div
+              role="alert"
+              className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              Configuration Supabase invalide : {supabaseConfigError}
+            </div>
+          ) : null}
+
           {error ? (
             <div
               role="alert"
@@ -98,7 +108,7 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || Boolean(supabaseConfigError)}
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark focus:ring-2 focus:ring-brand/40 focus:outline-none disabled:opacity-60"
           >
             {submitting ? <Spinner className="h-4 w-4 text-white" /> : null}

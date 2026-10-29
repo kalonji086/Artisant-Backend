@@ -1,39 +1,6 @@
 import axios from 'axios';
 import { supabase } from './supabase';
-import type {
-  AdminEmailCampaign,
-  AdminPlatformSettings,
-  AdminStats,
-  EmailAudience,
-  EmployerRequest,
-  EmployerRequestStatus,
-  Paginated,
-  Profile,
-  Quote,
-} from '../types';
-
-interface AdminSettingsResponse {
-  settings: AdminPlatformSettings;
-  emailProvider: { name: string; configured: boolean };
-}
-
-interface EmailAudienceResponse {
-  audience: EmailAudience;
-  recipientCount: number;
-  campaignLimit: number;
-  emailProviderConfigured: boolean;
-}
-
-interface EmailCampaignResponse {
-  audience: EmailAudience;
-  recipientCount: number;
-  sentCount: number;
-  failedCount: number;
-  status: AdminEmailCampaign['status'];
-  historySaved: boolean;
-  error?: string;
-  warning?: string;
-}
+import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, Quote } from '../types';
 
 const API_URL =
   (import.meta.env.VITE_API_URL as string | undefined) ||
@@ -72,27 +39,6 @@ export const AdminService = {
   getEmployerRequests: (params?: { status?: string; page?: number; pageSize?: number }) =>
     apiClient.get<Paginated<EmployerRequest>>('/admin/employer-requests', { params }),
 
-  getSettings: () => apiClient.get<AdminSettingsResponse>('/admin/settings'),
-
-  updateSettings: (settings: Omit<AdminPlatformSettings, 'updated_at' | 'updated_by'>) =>
-    apiClient.put<AdminSettingsResponse>('/admin/settings', settings),
-
-  sendTestEmail: (to: string) =>
-    apiClient.post<{ message: string }>('/admin/email/test', { to }),
-
-  getEmailAudience: (role: EmailAudience) =>
-    apiClient.get<EmailAudienceResponse>('/admin/email/audience', { params: { role } }),
-
-  sendEmailCampaign: (campaign: {
-    audience: EmailAudience;
-    subject: string;
-    body: string;
-    expectedRecipientCount: number;
-    confirmed: true;
-  }) => apiClient.post<EmailCampaignResponse>('/admin/email/campaigns', campaign),
-
-  getEmailCampaignHistory: () => apiClient.get<AdminEmailCampaign[]>('/admin/email/campaigns'),
-
   updateEmployerRequest: (
     id: string,
     body: { status: Exclude<EmployerRequestStatus, 'pending'>; admin_notes?: string }
@@ -105,7 +51,7 @@ export const apiErrorMessage = (err: unknown, fallback: string): string => {
     const body = err.response?.data as { error?: string } | undefined;
     if (body?.error) return body.error;
     if (!err.response) {
-      return 'Serveur API injoignable — vérifiez que le server/ tourne (npm run dev) et sa variable VITE_API_URL.';
+      return 'API indisponible — vérifiez le service API et la configuration VITE_API_URL.';
     }
     return err.message;
   }

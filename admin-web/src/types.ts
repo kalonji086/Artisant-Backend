@@ -1,28 +1,6 @@
 export type ProfileRole = 'client' | 'artisan';
 export type QuoteStatus = 'pending' | 'accepted' | 'rejected' | 'completed';
 export type EmployerRequestStatus = 'pending' | 'approved' | 'rejected';
-export type EmailAudience = 'client' | 'artisan';
-
-export interface AdminPlatformSettings {
-  platform_name: string;
-  support_email: string;
-  sender_name: string;
-  sender_email: string;
-  reply_to_email: string;
-  updated_at: string;
-  updated_by: string | null;
-}
-
-export interface AdminEmailCampaign {
-  id: string;
-  audience: EmailAudience;
-  subject: string;
-  recipient_count: number;
-  sent_count: number;
-  failed_count: number;
-  status: 'sent' | 'partial' | 'failed';
-  created_at: string;
-}
 
 export interface Profile {
   id: string;
