@@ -46,7 +46,7 @@ router.get('/stats', getAdminStats);
  *         description: Recherche sur nom ou adresse
  *       - in: query
  *         name: role
- *          schema: { type: string, enum: [client, artisan] }
+ *         schema: { type: string, enum: [client, artisan] }
  *       - in: query
  *         name: page
  *         schema: { type: integer, default: 1 }
