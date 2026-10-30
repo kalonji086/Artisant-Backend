@@ -55,6 +55,32 @@ Appliquer les scripts de `supabase_migrations/` dans l'ordre numérique dans le
 SQL Editor du projet Supabase avant de déployer le code qui en dépend.
 `supabase_schema.sql` décrit le schéma principal.
 
+## Créer le compte administrateur principal
+
+Exécuter d'abord `supabase_migrations/001_admin_role.sql` dans le SQL Editor
+du projet Supabase cible. Pour créer l'administrateur du projet de développement,
+lancer depuis la racine :
+
+```powershell
+npm --prefix server run admin:create
+```
+
+Le script lit `.env.local`, demande l'email et le nom, puis saisit le mot de
+passe sans l'afficher dans le terminal. Il crée le compte Auth s'il n'existe pas;
+sinon il attribue le rôle admin au compte confirmé existant. Ne lancez pas ce
+script avec les identifiants de production par défaut.
+
+Pour cibler la production sans remplacer les identifiants locaux, créer
+`.env.production.local` à la racine avec `SUPABASE_URL` et
+`SUPABASE_SERVICE_ROLE_KEY` du projet de production, puis lancer :
+
+```powershell
+npm --prefix server run admin:create -- --env-file .env.production.local
+```
+
+Les fichiers `.env.*.local` sont ignorés par Git. Ne jamais publier ni partager
+la clé `service_role`.
+
 ## Déploiement
 
 Le dépôt de déploiement est `kalonji086/Artisant-Backend`, branche `main`.
