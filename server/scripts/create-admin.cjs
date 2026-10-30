@@ -1,7 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
-const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
 
 const repositoryRoot = path.resolve(__dirname, '../..');
@@ -62,16 +61,6 @@ function validateConfiguration() {
   }
 
   return { url, key };
-}
-
-function ask(question) {
-  const prompt = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    prompt.question(question, (answer) => {
-      prompt.close();
-      resolve(answer.trim());
-    });
-  });
 }
 
 function askHidden(question) {
@@ -146,6 +135,7 @@ async function main() {
     return;
   }
 
+  const { createClient } = require('@supabase/supabase-js');
   const envFile = getEnvFile(args);
   if (!fs.existsSync(envFile)) {
     throw new Error(`Fichier de configuration introuvable : ${envFile}`);
