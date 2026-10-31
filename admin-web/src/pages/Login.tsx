@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Spinner } from '../components/ui';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { supabaseConfigError } from '../lib/supabase';
+import logoImage from '/logo.png';
 
 export default function Login() {
   const { session, isAdmin, profileReady, signIn } = useAdminAuth();
@@ -40,7 +41,13 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-surface p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <img src="/logo.png" alt="ARTISANTS" className="mx-auto h-20 w-auto" />
+          <div className="mx-auto mb-4 inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand to-brand-dark shadow-lg">
+            <img
+              src={logoImage}
+              alt="ARTISANTS"
+              className="h-full w-full object-cover"
+            />
+          </div>
           <h1 className="mt-4 text-2xl font-bold tracking-tight text-ink">ARTISANTS</h1>
           <p className="mt-1 text-sm text-muted">Tableau de bord administrateur</p>
         </div>
