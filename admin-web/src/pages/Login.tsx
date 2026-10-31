@@ -40,9 +40,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-surface p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-xl font-black text-white shadow-lg shadow-brand/30">
-            A
-          </span>
+          <img src="/logo.png" alt="ARTISANTS" className="mx-auto h-20 w-auto" />
           <h1 className="mt-4 text-2xl font-bold tracking-tight text-ink">ARTISANTS</h1>
           <p className="mt-1 text-sm text-muted">Tableau de bord administrateur</p>
         </div>
@@ -115,11 +113,6 @@ export default function Login() {
             {submitting ? 'Connexion…' : 'Se connecter'}
           </button>
         </form>
-
-        <p className="mt-4 text-center text-xs text-muted">
-          Promouvez un compte en admin via la migration SQL{' '}
-          <code className="rounded bg-gray-200 px-1">supabase_migrations/001_admin_role.sql</code>.
-        </p>
       </div>
     </div>
   );

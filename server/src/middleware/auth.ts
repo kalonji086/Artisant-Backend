@@ -21,12 +21,14 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
+      logger.warn('Token invalide ou expiré', { error: error?.message });
       return res.status(401).json({ error: 'Session invalide ou expirée' });
     }
 
     (req as AuthenticatedRequest).user = { id: user.id };
     next();
   } catch (err) {
+    logger.error('Erreur lors de la validation du token', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ error: 'Erreur serveur lors de l\'authentification' });
   }
 };
