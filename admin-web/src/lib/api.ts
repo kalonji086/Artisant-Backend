@@ -2,12 +2,8 @@ import axios from 'axios';
 import { supabase } from './supabase';
 import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, Quote } from '../types';
 
-const API_URL =
-  (import.meta.env.VITE_API_URL as string | undefined) ||
-  (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : '/api/v1');
-
 const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -51,7 +47,7 @@ export const apiErrorMessage = (err: unknown, fallback: string): string => {
     const body = err.response?.data as { error?: string } | undefined;
     if (body?.error) return body.error;
     if (!err.response) {
-      return 'API indisponible — vérifiez le service API et la configuration VITE_API_URL.';
+      return 'API indisponible — vérifiez que le service API répond sur /api/v1.';
     }
     return err.message;
   }

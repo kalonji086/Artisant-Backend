@@ -11,5 +11,11 @@ export default defineConfig({
   build: { outDir: '../server/public/admin', emptyOutDir: true },
   server: {
     port: 5173,
+    proxy: {
+      '/api/v1': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
 });
