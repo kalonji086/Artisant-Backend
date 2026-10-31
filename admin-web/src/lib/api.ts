@@ -31,12 +31,15 @@ apiClient.interceptors.request.use(async (config) => {
 });
 
 // Gère les erreurs d'authentification (401 = token expiré/invalide)
+// Déconnecte et redirige vers la page de login
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
       await supabase.auth.signOut();
-      window.location.href = '/login';
+      // Utilise le chemin relatif avec la base de l'app
+      const base = import.meta.env.BASE_URL || '/admin/';
+      window.location.href = `${base}login`.replace(/\/+/g, '/');
     }
     return Promise.reject(error);
   }
