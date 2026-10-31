@@ -2,21 +2,24 @@ import axios from 'axios';
 import { supabase } from './supabase';
 import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, Quote } from '../types';
 
-const API_URL =
-  (import.meta.env.VITE_API_URL as string | undefined) ||
-  (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : '/api/v1');
-
 const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
 });
 
 // Injecte le jeton de session Supabase sur chaque requête API
+// Rafraîchit automatiquement si le token est absent mais la session existe
 apiClient.interceptors.request.use(async (config) => {
   try {
-    const {
+    let {
       data: { session },
     } = await supabase.auth.getSession();
+
+    if (!session?.access_token && session?.user) {
+      await supabase.auth.refreshSession();
+      const result = await supabase.auth.getSession();
+      session = result.data.session;
+    }
 
     if (session?.access_token) {
       config.headers.set('Authorization', `Bearer ${session.access_token}`);
@@ -26,6 +29,18 @@ apiClient.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+// Gère les erreurs d'authentification (401 = token expiré/invalide)
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      await supabase.auth.signOut();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const AdminService = {
   getStats: () => apiClient.get<AdminStats>('/admin/stats'),
@@ -51,7 +66,7 @@ export const apiErrorMessage = (err: unknown, fallback: string): string => {
     const body = err.response?.data as { error?: string } | undefined;
     if (body?.error) return body.error;
     if (!err.response) {
-      return 'API indisponible — vérifiez le service API et la configuration VITE_API_URL.';
+      return 'API indisponible — vérifiez que le service API répond sur /api/v1.';
     }
     return err.message;
   }
