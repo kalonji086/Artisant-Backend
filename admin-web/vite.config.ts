@@ -8,7 +8,20 @@ export default defineConfig({
   envDir: '..',
   plugins: [react(), tailwindcss()],
   resolve: { extensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.mts', '.json'] },
-  build: { outDir: '../server/public/admin', emptyOutDir: true },
+  build: {
+    outDir: '../server/public/admin',
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          recharts: ['recharts'],
+          supabase: ['@supabase/supabase-js'],
+          react: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
