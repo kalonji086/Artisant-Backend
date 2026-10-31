@@ -14,10 +14,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          recharts: ['recharts'],
-          supabase: ['@supabase/supabase-js'],
-          react: ['react', 'react-dom', 'react-router-dom'],
+        manualChunks: (id) => {
+          if (id.includes('node_modules/recharts')) return 'recharts';
+          if (id.includes('node_modules/@supabase')) return 'supabase';
+          if (id.includes('node_modules/react')) return 'react-vendor';
         },
       },
     },
