@@ -21,7 +21,9 @@ Cela signifie que ton compte utilisateur n'a pas le rôle `admin` dans la base d
 ```sql
 UPDATE profiles
 SET role = 'admin'
-WHERE email = 'TON_EMAIL_ICI';
+WHERE id = (
+  SELECT id FROM auth.users WHERE email = 'TON_EMAIL_ICI'
+);
 ```
 
 **Remplace `TON_EMAIL_ICI` par ton vrai email** (celui que tu utilises pour te connecter)
@@ -30,7 +32,9 @@ Exemple :
 ```sql
 UPDATE profiles
 SET role = 'admin'
-WHERE email = 'jean.dupont@example.com';
+WHERE id = (
+  SELECT id FROM auth.users WHERE email = 'jean.dupont@example.com'
+);
 ```
 
 ### Étape 3 : Exécute le script
@@ -43,7 +47,10 @@ WHERE email = 'jean.dupont@example.com';
 Exécute cette requête pour vérifier :
 
 ```sql
-SELECT id, email, role, full_name FROM profiles WHERE email = 'TON_EMAIL_ICI';
+SELECT p.id, au.email, p.role, p.full_name
+FROM profiles p
+JOIN auth.users au ON p.id = au.id
+WHERE au.email = 'TON_EMAIL_ICI';
 ```
 
 Tu devrais voir une ligne avec `role: admin` ✓
@@ -78,6 +85,8 @@ Pour promouvoir un autre utilisateur en admin, répète simplement l'étape 2-3 
 ```sql
 UPDATE profiles
 SET role = 'admin'
-WHERE email = 'autre.utilisateur@example.com';
+WHERE id = (
+  SELECT id FROM auth.users WHERE email = 'autre.utilisateur@example.com'
+);
 ```
 

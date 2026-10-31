@@ -4,13 +4,18 @@
 -- Instructions:
 -- 1. Va sur supabase.com → Ton projet → SQL Editor
 -- 2. Crée une nouvelle requête
--- 3. Remplace 'votre-email@example.com' par VOTRE EMAIL
+-- 3. Remplace 'wecanconcept@gmail.com' par TON EMAIL
 -- 4. Copie-colle ce script
 -- 5. Clique sur "RUN"
 
 UPDATE profiles
 SET role = 'admin'
-WHERE email = 'votre-email@example.com';
+WHERE id = (
+  SELECT id FROM auth.users WHERE email = 'wecanconcept@gmail.com'
+);
 
 -- Vérifie que c'est correct:
-SELECT id, email, role, full_name FROM profiles WHERE email = 'votre-email@example.com';
+SELECT p.id, au.email, p.role, p.full_name
+FROM profiles p
+JOIN auth.users au ON p.id = au.id
+WHERE au.email = 'wecanconcept@gmail.com';
