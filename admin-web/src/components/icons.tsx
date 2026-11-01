@@ -123,3 +123,22 @@ export const ChevronRightIcon = (props: IconProps) => (
     <path d="m9 18 6-6-6-6" />
   </svg>
 );
+
+export const SettingsIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 1v6m0 6v6" />
+    <path d="M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24" />
+    <path d="M1 12h6m6 0h6" />
+    <path d="M4.22 19.78l4.24-4.24m2.12-2.12l4.24-4.24" />
+    <path d="M19.78 19.78l-4.24-4.24m-2.12-2.12l-4.24-4.24" />
+    <path d="M19.78 4.22l-4.24 4.24m-2.12 2.12l-4.24 4.24" />
+  </svg>
+);
+
+export const MailIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 4-10 7L2 4" />
+  </svg>
+);
