@@ -32,7 +32,7 @@ export default function Emails() {
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const data = await api.get(`/admin/email-campaigns?page=${page}&pageSize=10`);
+      const data = await api.get(`/admin/email-campaigns?page=1&pageSize=10`);
       setCampaigns(data.data);
       setError(null);
     } catch (err) {
