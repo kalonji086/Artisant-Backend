@@ -7,31 +7,48 @@ type AuthenticatedRequest = Request & { user?: { id: string } };
 
 export const getPlatformSettings = async (req: Request, res: Response) => {
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('admin_platform_settings')
       .select('*')
       .single();
 
-    if (error) {
-      console.error('[SETTINGS] Error fetching settings:', error);
-      // Si la table est vide ou n'existe pas, retourner les valeurs par défaut
-      return res.json({
-        id: true,
-        platform_name: 'ARTISANTS',
-        support_email: 'support@artisants.com',
-        sender_name: 'ARTISANTS',
-        sender_email: 'noreply@artisants.com',
-        reply_to_email: '',
-        updated_at: new Date().toISOString(),
-        updated_by: null,
-      });
+    // Si la table est vide, insérer une ligne par défaut
+    if (error?.code === 'PGRST116') {
+      console.log('[SETTINGS] Table empty, inserting default settings...');
+      const { data: inserted, error: insertError } = await supabase
+        .from('admin_platform_settings')
+        .insert({
+          id: true,
+          platform_name: 'ARTISANTS',
+          support_email: 'support@artisants.com',
+          sender_name: 'ARTISANTS',
+          sender_email: 'noreply@artisants.com',
+          reply_to_email: '',
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      data = inserted;
+    } else if (error) {
+      throw error;
     }
 
     res.json(data);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur lors de la récupération des paramètres';
     logger.error('Erreur lors de la récupération des paramètres', { error: message });
-    res.status(500).json({ error: message });
+    // Retourner les valeurs par défaut au lieu de l'erreur
+    res.json({
+      id: true,
+      platform_name: 'ARTISANTS',
+      support_email: 'support@artisants.com',
+      sender_name: 'ARTISANTS',
+      sender_email: 'noreply@artisants.com',
+      reply_to_email: '',
+      updated_at: new Date().toISOString(),
+      updated_by: null,
+    });
   }
 };
 
@@ -167,13 +184,16 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
     const htmlContent = generateEmailTemplate(subject, body);
 
     // Envoyer l'email via Brevo
-    await sendEmail({
+    console.log('[EMAIL] Sending to', recipients.length, 'recipients...');
+    const emailResult = await sendEmail({
       to: recipients,
       subject,
       htmlContent,
     });
+    console.log('[EMAIL] Sent successfully:', emailResult.messageId);
 
     // Enregistrer la campagne en base de données
+    console.log('[EMAIL] Recording campaign...');
     const { data: campaign, error: campaignError } = await supabase
       .from('admin_email_campaigns')
       .insert({
@@ -188,7 +208,12 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
       .select()
       .single();
 
-    if (campaignError) throw campaignError;
+    if (campaignError) {
+      console.error('[EMAIL] Campaign insert error:', campaignError);
+      throw campaignError;
+    }
+
+    console.log('[EMAIL] Campaign recorded:', campaign.id);
 
     logger.info('Email campaign sent', {
       admin_id: admin.id,
