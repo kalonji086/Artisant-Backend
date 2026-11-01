@@ -209,23 +209,28 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
       .single();
 
     if (campaignError) {
-      console.error('[EMAIL] Campaign insert error:', campaignError);
-      throw campaignError;
+      console.warn('[EMAIL] Campaign insert warning (RLS):', campaignError.message);
+      // L'email a déjà été envoyé via Brevo, on continue sans erreur
+      // même si l'enregistrement échoue (problème RLS)
+      logger.info('Email sent via Brevo but campaign recording skipped due to RLS', {
+        messageId: emailResult.messageId,
+        recipients: recipients.length,
+      });
+    } else {
+      console.log('[EMAIL] Campaign recorded:', campaign.id);
     }
-
-    console.log('[EMAIL] Campaign recorded:', campaign.id);
 
     logger.info('Email campaign sent', {
       admin_id: admin.id,
-      campaign_id: campaign.id,
       recipient_count: recipients.length,
       recipient_type: recipientType,
+      brevo_message_id: emailResult.messageId,
     });
 
     res.json({
       success: true,
-      campaign,
       message: `Email envoyé à ${recipients.length} destinataire(s)`,
+      messageId: emailResult.messageId,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur lors de l\'envoi de l\'email';
