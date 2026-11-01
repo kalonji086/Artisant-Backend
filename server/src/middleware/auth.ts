@@ -78,7 +78,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
 
       const { data: created, error: createError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: user.id,
           role: roleToAssign,
           full_name: user.user_metadata?.full_name || ''
