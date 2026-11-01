@@ -45,6 +45,28 @@ apiClient.interceptors.response.use(
   }
 );
 
+export const api = {
+  async get<T = any>(url: string): Promise<T> {
+    const response = await apiClient.get<T>(url);
+    return response.data;
+  },
+
+  async post<T = any>(url: string, data?: any): Promise<T> {
+    const response = await apiClient.post<T>(url, data);
+    return response.data;
+  },
+
+  async patch<T = any>(url: string, data?: any): Promise<T> {
+    const response = await apiClient.patch<T>(url, data);
+    return response.data;
+  },
+
+  async delete<T = any>(url: string): Promise<T> {
+    const response = await apiClient.delete<T>(url);
+    return response.data;
+  },
+};
+
 export const AdminService = {
   getStats: () => apiClient.get<AdminStats>('/admin/stats'),
 
