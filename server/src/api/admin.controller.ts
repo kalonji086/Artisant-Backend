@@ -64,7 +64,6 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       artisansRes,
       activeArtisansRes,
       quotesTotalRes,
-      jobsRes,
       categoriesRes,
       pendingRequestsRes,
       recentProfilesRes,
@@ -83,7 +82,6 @@ export const getAdminStats = async (_req: Request, res: Response) => {
         .eq('role', 'artisan')
         .eq('is_available', true),
       supabase.from('quotes').select('id', { count: 'exact', head: true }),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }),
       supabase.from('categories').select('id', { count: 'exact', head: true }),
       supabase.from('employer_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase
@@ -102,7 +100,7 @@ export const getAdminStats = async (_req: Request, res: Response) => {
 
     const allResults = [
       totalProfilesRes, clientsRes, artisansRes, activeArtisansRes, quotesTotalRes,
-      jobsRes, categoriesRes, pendingRequestsRes, recentProfilesRes, recentQuotesRes,
+      categoriesRes, pendingRequestsRes, recentProfilesRes, recentQuotesRes,
       categoriesListRes,
     ];
     const failed = allResults.find((r) => r.error);
@@ -189,7 +187,7 @@ export const getAdminStats = async (_req: Request, res: Response) => {
         activeArtisans: activeArtisansRes.count ?? 0,
         quotes: quotesTotalRes.count ?? 0,
         quotesPending: quotesByStatus.find((s) => s.status === 'pending')?.count ?? 0,
-        jobs: jobsRes.count ?? 0,
+        jobs: 0,
         categories: categoriesRes.count ?? 0,
         employerRequestsPending: pendingRequestsRes.count ?? 0,
       },
@@ -209,8 +207,8 @@ export const getAdminStats = async (_req: Request, res: Response) => {
             typeof err.message === 'string'
           ? err.message
           : 'Erreur inconnue lors de la récupération des statistiques';
-    logger.error('Erreur lors de la récupération des statistiques', { error: message });
-    res.status(500).json({ error: message });
+    logger.error('Erreur lors de la récupération des statistiques', { error: message, fullError: err });
+    res.status(500).json({ error: message || 'Erreur serveur' });
   }
 };
 
