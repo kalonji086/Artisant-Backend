@@ -20,9 +20,12 @@ export default function Emails() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
+    recipientType: 'all' as 'all' | 'specific' | 'email',
     audience: 'client' as 'client' | 'artisan',
     subject: '',
     body: '',
+    specificEmail: '',
+    specificUserId: '',
   });
 
   useEffect(() => {
@@ -50,15 +53,35 @@ export default function Emails() {
       return;
     }
 
+    if (formData.recipientType === 'all' && !formData.audience) {
+      setError('Veuillez sélectionner Clients ou Artisans');
+      return;
+    }
+
+    if (formData.recipientType === 'email' && !formData.specificEmail.includes('@')) {
+      setError('Email valide requis');
+      return;
+    }
+
     try {
       setSending(true);
       const result = await api.post('/admin/email-campaigns', {
-        audience: formData.audience,
+        recipientType: formData.recipientType,
+        audience: formData.audience || undefined,
         subject: formData.subject,
         body: formData.body,
+        specificEmail: formData.recipientType === 'email' ? formData.specificEmail : undefined,
+        specificUserId: formData.recipientType === 'specific' ? formData.specificUserId : undefined,
       });
       setSuccess(result.message);
-      setFormData({ audience: 'client', subject: '', body: '' });
+      setFormData({
+        recipientType: 'all',
+        audience: 'client',
+        subject: '',
+        body: '',
+        specificEmail: '',
+        specificUserId: '',
+      });
       setError(null);
       await fetchCampaigns();
       setTimeout(() => setSuccess(null), 3000);
@@ -148,20 +171,103 @@ export default function Emails() {
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-ink mb-4">Envoyer une campagne</h2>
-        <form onSubmit={handleSendEmail} className="space-y-4">
+        <h2 className="text-lg font-semibold text-ink mb-6">Envoyer un email</h2>
+        <form onSubmit={handleSendEmail} className="space-y-6">
+          {/* Type de destinataire */}
           <div>
-            <label className="block text-sm font-medium text-ink mb-2">Public cible</label>
-            <select
-              value={formData.audience}
-              onChange={(e) => setFormData({ ...formData, audience: e.target.value as 'client' | 'artisan' })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-            >
-              <option value="client">Clients</option>
-              <option value="artisan">Artisans</option>
-            </select>
+            <label className="block text-sm font-medium text-ink mb-3">À qui envoyer ?</label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50" style={{borderColor: formData.recipientType === 'all' ? '#3b82f6' : '#e5e7eb', backgroundColor: formData.recipientType === 'all' ? '#eff6ff' : 'transparent'}}>
+                <input
+                  type="radio"
+                  value="all"
+                  checked={formData.recipientType === 'all'}
+                  onChange={(e) => setFormData({ ...formData, recipientType: e.target.value as any })}
+                  className="w-4 h-4"
+                />
+                <span className="flex-1">À tous les clients / artisans</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50" style={{borderColor: formData.recipientType === 'specific' ? '#3b82f6' : '#e5e7eb', backgroundColor: formData.recipientType === 'specific' ? '#eff6ff' : 'transparent'}}>
+                <input
+                  type="radio"
+                  value="specific"
+                  checked={formData.recipientType === 'specific'}
+                  onChange={(e) => setFormData({ ...formData, recipientType: e.target.value as any })}
+                  className="w-4 h-4"
+                />
+                <span className="flex-1">À un utilisateur spécifique</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50" style={{borderColor: formData.recipientType === 'email' ? '#3b82f6' : '#e5e7eb', backgroundColor: formData.recipientType === 'email' ? '#eff6ff' : 'transparent'}}>
+                <input
+                  type="radio"
+                  value="email"
+                  checked={formData.recipientType === 'email'}
+                  onChange={(e) => setFormData({ ...formData, recipientType: e.target.value as any })}
+                  className="w-4 h-4"
+                />
+                <span className="flex-1">À une adresse email</span>
+              </label>
+            </div>
           </div>
 
+          {/* Audience (si "tous") */}
+          {formData.recipientType === 'all' && (
+            <div>
+              <label className="block text-sm font-medium text-ink mb-2">Public cible</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="client"
+                    checked={formData.audience === 'client'}
+                    onChange={(e) => setFormData({ ...formData, audience: e.target.value as any })}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-ink">Tous les clients</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="artisan"
+                    checked={formData.audience === 'artisan'}
+                    onChange={(e) => setFormData({ ...formData, audience: e.target.value as any })}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-ink">Tous les artisans</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Email spécifique (si "email") */}
+          {formData.recipientType === 'email' && (
+            <div>
+              <label className="block text-sm font-medium text-ink mb-2">Adresse email</label>
+              <input
+                type="email"
+                value={formData.specificEmail}
+                onChange={(e) => setFormData({ ...formData, specificEmail: e.target.value })}
+                placeholder="utilisateur@example.com"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+              />
+            </div>
+          )}
+
+          {/* User ID spécifique (si "specific") */}
+          {formData.recipientType === 'specific' && (
+            <div>
+              <label className="block text-sm font-medium text-ink mb-2">ID utilisateur</label>
+              <input
+                type="text"
+                value={formData.specificUserId}
+                onChange={(e) => setFormData({ ...formData, specificUserId: e.target.value })}
+                placeholder="Collez l'UUID de l'utilisateur"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none font-mono text-xs"
+              />
+            </div>
+          )}
+
+          {/* Sujet */}
           <div>
             <label className="block text-sm font-medium text-ink mb-2">Sujet</label>
             <input
@@ -173,23 +279,26 @@ export default function Emails() {
             />
           </div>
 
+          {/* Message */}
           <div>
             <label className="block text-sm font-medium text-ink mb-2">Message</label>
             <textarea
-              rows={6}
+              rows={8}
               value={formData.body}
               onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-              placeholder="Contenu de l'email..."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+              placeholder="Contenu de l'email (HTML supporté)..."
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none font-mono text-xs"
             />
+            <p className="text-xs text-muted mt-2">💡 Conseil: Utilisez du HTML pour un meilleur formatage</p>
           </div>
 
+          {/* Bouton d'envoi */}
           <button
             type="submit"
             disabled={sending}
             className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 transition disabled:opacity-50"
           >
-            {sending ? 'Envoi en cours...' : 'Envoyer la campagne'}
+            {sending ? 'Envoi en cours...' : '✉️ Envoyer l\'email'}
           </button>
         </form>
       </div>

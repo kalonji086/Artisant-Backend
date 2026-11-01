@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { sendEmail, generateEmailTemplate } from '../lib/email';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
@@ -107,53 +108,99 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
     return res.status(401).json({ error: 'Utilisateur non authentifié' });
   }
 
-  const { audience, subject, body } = req.body;
+  const { recipientType, audience, subject, body, specificEmail, specificUserId } = req.body;
 
-  if (!audience || !subject || !body) {
-    return res.status(400).json({ error: 'Audience, sujet et contenu requis' });
+  if (!recipientType || !subject || !body) {
+    return res.status(400).json({ error: 'Type de destinataire, sujet et contenu requis' });
   }
 
-  if (!['client', 'artisan'].includes(audience)) {
-    return res.status(400).json({ error: 'Audience invalide (client ou artisan)' });
+  if (!['all', 'specific', 'email'].includes(recipientType)) {
+    return res.status(400).json({ error: 'Type de destinataire invalide' });
   }
 
   try {
-    const { data: profiles, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .eq('role', audience);
+    let recipients: string[] = [];
 
-    if (profileError) throw profileError;
+    // Déterminer les destinataires en fonction du type
+    if (recipientType === 'all') {
+      if (!audience || !['client', 'artisan'].includes(audience)) {
+        return res.status(400).json({ error: 'Public requis pour "Tous"' });
+      }
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', audience);
 
-    const recipientCount = profiles?.length ?? 0;
+      if (error) throw error;
 
+      // Récupérer les emails depuis auth.users
+      if (profiles && profiles.length > 0) {
+        const userIds = profiles.map((p) => p.id);
+        const { data: users, error: userError } = await supabase.auth.admin.listUsers();
+
+        if (userError) throw userError;
+
+        recipients = (users?.users || [])
+          .filter((u) => userIds.includes(u.id))
+          .map((u) => u.email || '')
+          .filter(Boolean);
+      }
+    } else if (recipientType === 'specific') {
+      if (!specificUserId) {
+        return res.status(400).json({ error: 'User ID requis pour un utilisateur spécifique' });
+      }
+      const { data: user, error } = await supabase.auth.admin.getUserById(specificUserId);
+      if (error || !user?.user?.email) throw new Error('Utilisateur non trouvé');
+      recipients = [user.user.email];
+    } else if (recipientType === 'email') {
+      if (!specificEmail || !specificEmail.includes('@')) {
+        return res.status(400).json({ error: 'Email valide requis' });
+      }
+      recipients = [specificEmail];
+    }
+
+    if (recipients.length === 0) {
+      return res.status(400).json({ error: 'Aucun destinataire trouvé' });
+    }
+
+    // Générer le template d'email
+    const htmlContent = generateEmailTemplate(subject, body);
+
+    // Envoyer l'email via Brevo
+    await sendEmail({
+      to: recipients,
+      subject,
+      htmlContent,
+    });
+
+    // Enregistrer la campagne en base de données
     const { data: campaign, error: campaignError } = await supabase
       .from('admin_email_campaigns')
       .insert({
         created_by: admin.id,
-        audience,
+        audience: audience || recipientType,
         subject,
-        recipient_count: recipientCount,
-        sent_count: recipientCount,
+        recipient_count: recipients.length,
+        sent_count: recipients.length,
         failed_count: 0,
-        status: recipientCount > 0 ? 'sent' : 'failed',
+        status: 'sent',
       })
       .select()
       .single();
 
     if (campaignError) throw campaignError;
 
-    logger.info('Campagne email envoyée', {
+    logger.info('Email campaign sent', {
       admin_id: admin.id,
       campaign_id: campaign.id,
-      recipient_count: recipientCount,
-      audience,
+      recipient_count: recipients.length,
+      recipient_type: recipientType,
     });
 
     res.json({
       success: true,
       campaign,
-      message: `Email envoyé à ${recipientCount} destinataires`,
+      message: `Email envoyé à ${recipients.length} destinataire(s)`,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur lors de l\'envoi de l\'email';
