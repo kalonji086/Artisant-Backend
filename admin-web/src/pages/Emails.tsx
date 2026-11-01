@@ -12,23 +12,12 @@ interface EmailCampaign {
   created_at: string;
 }
 
-interface PaginationData {
-  data: EmailCampaign[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
 export default function Emails() {
   const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
 
   const [formData, setFormData] = useState({
     audience: 'client' as 'client' | 'artisan',
@@ -38,7 +27,7 @@ export default function Emails() {
 
   useEffect(() => {
     fetchCampaigns();
-  }, [page]);
+  }, []);
 
   const fetchCampaigns = async () => {
     try {
