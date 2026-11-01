@@ -76,37 +76,60 @@ export const generateEmailTemplate = (
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
   <style>
-    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; background-color: #f9fafb; }
-    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-    .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 40px 20px; text-align: center; }
-    .logo { color: white; font-size: 28px; font-weight: bold; margin: 0; letter-spacing: 1px; }
-    .logo-sub { color: rgba(255,255,255,0.9); font-size: 12px; margin: 5px 0 0 0; letter-spacing: 2px; }
-    .content { padding: 40px 20px; color: #1f2937; }
-    .title { font-size: 24px; font-weight: bold; color: #1f2937; margin: 0 0 20px 0; }
-    .text { font-size: 16px; line-height: 1.6; color: #4b5563; margin: 0 0 20px 0; }
-    .cta { display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
-    .cta:hover { opacity: 0.9; }
-    .footer { background-color: #f3f4f6; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
-    .footer-text { margin: 0; }
-    .divider { height: 1px; background-color: #e5e7eb; margin: 20px 0; }
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background-color: #f8f9fa; }
+    .wrapper { width: 100%; background-color: #f8f9fa; padding: 20px 0; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 40px 30px; text-align: center; }
+    .logo-container { margin-bottom: 20px; }
+    .logo { width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.2); display: inline-flex; align-items: center; justify-content: center; font-size: 40px; color: white; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .brand-name { color: white; font-size: 26px; font-weight: 700; margin: 0; letter-spacing: 0.5px; }
+    .brand-subtitle { color: rgba(255,255,255,0.95); font-size: 13px; margin: 6px 0 0 0; font-weight: 500; letter-spacing: 1px; }
+    .content { padding: 40px 30px; color: #1f2937; }
+    .content-title { font-size: 22px; font-weight: 600; color: #111827; margin: 0 0 16px 0; line-height: 1.3; }
+    .content-text { font-size: 15px; line-height: 1.6; color: #4b5563; margin: 0 0 20px 0; }
+    .cta { display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; margin: 20px 0; transition: opacity 0.2s; }
+    .cta:hover { opacity: 0.95; }
+    .divider { height: 1px; background-color: #e5e7eb; margin: 24px 0; }
+    .footer { background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb; }
+    .footer-text { margin: 0; font-size: 13px; color: #6b7280; line-height: 1.6; }
+    .footer-text strong { color: #374151; }
+    .social-links { margin-top: 20px; }
+    .social-links a { color: #3b82f6; text-decoration: none; margin: 0 10px; font-size: 12px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <p class="logo">ARTISANTS</p>
-      <p class="logo-sub">PLATEFORME</p>
-    </div>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <div class="logo-container">
+          <div class="logo">A</div>
+        </div>
+        <p class="brand-name">ARTISANTS</p>
+        <p class="brand-subtitle">PLATEFORME</p>
+      </div>
 
-    <div class="content">
-      <h1 class="title">${title}</h1>
-      <div class="text">${content}</div>
-      ${ctaText && ctaUrl ? `<a href="${ctaUrl}" class="cta">${ctaText}</a>` : ''}
-    </div>
+      <div class="content">
+        <h1 class="content-title">${title}</h1>
+        <div class="content-text">${content}</div>
+        ${ctaText && ctaUrl ? `<a href="${ctaUrl}" class="cta">${ctaText}</a>` : ''}
+      </div>
 
-    <div class="footer">
-      <p class="footer-text">© 2026 ARTISANTS. Tous droits réservés.</p>
-      <p class="footer-text">Cette plateforme met en relation artisans et clients pour des services de qualité.</p>
+      <div class="footer">
+        <p class="footer-text">
+          <strong>ARTISANTS</strong> — Plateforme de mise en relation artisans & clients
+        </p>
+        <p class="footer-text">
+          Connecter les talents, créer des opportunités
+        </p>
+        <div class="social-links">
+          <a href="#">Support</a>
+          <a href="#">Politique</a>
+          <a href="#">Paramètres</a>
+        </div>
+        <p class="footer-text" style="margin-top: 20px; font-size: 12px; color: #9ca3af;">
+          © 2026 ARTISANTS. Tous droits réservés.
+        </p>
+      </div>
     </div>
   </div>
 </body>
