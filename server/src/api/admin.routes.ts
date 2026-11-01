@@ -7,6 +7,12 @@ import {
   updateEmployerRequestStatus,
   getDatabaseStatus,
 } from './admin.controller';
+import {
+  getPlatformSettings,
+  updatePlatformSettings,
+  getEmailCampaigns,
+  sendEmailCampaign,
+} from './settings.controller';
 import { authenticate, requireAdmin } from '../middleware/auth';
 
 const router = Router();
@@ -169,4 +175,99 @@ router.get('/employer-requests', getEmployerRequests);
  */
 router.patch('/employer-requests/:id', updateEmployerRequestStatus);
 
-export default router;
+/**
+ * @swagger
+ * /api/v1/admin/settings:
+ *   get:
+ *     summary: Récupérer les paramètres de la plateforme
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Paramètres de la plateforme
+ *       403:
+ *         description: Accès réservé aux administrateurs
+ *   patch:
+ *     summary: Mettre à jour les paramètres de la plateforme
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               platform_name:
+ *                 type: string
+ *               support_email:
+ *                 type: string
+ *                 format: email
+ *               sender_name:
+ *                 type: string
+ *               sender_email:
+ *                 type: string
+ *                 format: email
+ *               reply_to_email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Paramètres mis à jour
+ *       403:
+ *         description: Accès réservé aux administrateurs
+ */
+router.get('/settings', getPlatformSettings);
+router.patch('/settings', updatePlatformSettings);
+
+/**
+ * @swagger
+ * /api/v1/admin/email-campaigns:
+ *   get:
+ *     summary: Historique des campagnes d'email
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: pageSize
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200:
+ *         description: Liste paginée des campagnes d'email
+ *       403:
+ *         description: Accès réservé aux administrateurs
+ *   post:
+ *     summary: Envoyer une campagne d'email
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [audience, subject, body]
+ *             properties:
+ *               audience:
+ *                 type: string
+ *                 enum: [client, artisan]
+ *               subject:
+ *                 type: string
+ *               body:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Campagne d'email envoyée
+ *       400:
+ *         description: Données invalides
+ *       403:
+ *         description: Accès réservé aux administrateurs
+ */
+router.get('/email-campaigns', getEmailCampaigns);
+router.post('/email-campaigns', sendEmailCampaign);
