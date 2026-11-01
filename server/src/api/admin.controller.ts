@@ -139,45 +139,51 @@ export const getAdminStats = async (_req: Request, res: Response) => {
     const categories = categoriesListRes.data ?? [];
     console.log(`[STATS] Categories count: ${categories.length}`);
 
-    const serviceCountResults = await Promise.all([
-      ...categories.map((category) => {
-        console.log(`[STATS] Service count for category: ${category.id}`);
-        return supabase
-          .from('artisan_services')
-          .select('category_id', { count: 'exact', head: true })
-          .eq('category_id', category.id);
-      }),
-      (() => {
-        console.log('[STATS] Service count uncategorized');
-        return supabase
-          .from('artisan_services')
-          .select('category_id', { count: 'exact', head: true })
-          .is('category_id', null);
-      })(),
-    ]);
+    let servicesByCategory: Array<{ category: string; count: number }> = [];
+    try {
+      const serviceCountResults = await Promise.all([
+        ...categories.map((category) => {
+          console.log(`[STATS] Service count for category: ${category.id}`);
+          return supabase
+            .from('artisan_services')
+            .select('category_id', { count: 'exact', head: true })
+            .eq('category_id', category.id);
+        }),
+        (() => {
+          console.log('[STATS] Service count uncategorized');
+          return supabase
+            .from('artisan_services')
+            .select('category_id', { count: 'exact', head: true })
+            .is('category_id', null);
+        })(),
+      ]);
 
-    console.log('[STATS] Service count queries OK');
+      console.log('[STATS] Service count queries OK');
 
-    const serviceError = serviceCountResults.find((result) => result.error);
-    if (serviceError?.error) {
-      console.error('[STATS] Service count failed:', serviceError.error);
-      throw serviceError.error;
+      const serviceError = serviceCountResults.find((result) => result.error);
+      if (serviceError?.error) {
+        console.error('[STATS] Service count failed:', serviceError.error);
+        throw serviceError.error;
+      }
+
+      const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
+      const serviceCounts = new Map<string, number>();
+      categories.forEach((category, index) => {
+        const name = categoryNames.get(category.id) || 'Non classé';
+        serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + (serviceCountResults[index].count ?? 0));
+      });
+      const uncategorizedCount = serviceCountResults[categories.length].count ?? 0;
+      if (uncategorizedCount > 0) {
+        serviceCounts.set('Non classé', (serviceCounts.get('Non classé') ?? 0) + uncategorizedCount);
+      }
+      servicesByCategory = Array.from(serviceCounts.entries())
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
+    } catch (err) {
+      console.error('[STATS] Skipping service count due to error:', err);
+      // Continue without service counts - artisan_services may not be initialized
     }
-
-    const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
-    const serviceCounts = new Map<string, number>();
-    categories.forEach((category, index) => {
-      const name = categoryNames.get(category.id) || 'Non classé';
-      serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + (serviceCountResults[index].count ?? 0));
-    });
-    const uncategorizedCount = serviceCountResults[categories.length].count ?? 0;
-    if (uncategorizedCount > 0) {
-      serviceCounts.set('Non classé', (serviceCounts.get('Non classé') ?? 0) + uncategorizedCount);
-    }
-    const servicesByCategory = Array.from(serviceCounts.entries())
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
 
     // Devis récents avec noms résolus
     const recentQuoteRows = recentQuotesRes.data ?? [];
