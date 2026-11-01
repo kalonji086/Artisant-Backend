@@ -1,17 +1,8 @@
-import axios from 'axios';
 import { logger } from './logger';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'noreply@artisants.com';
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'ARTISANTS';
-
-const brevoClient = axios.create({
-  baseURL: 'https://api.brevo.com/v3',
-  headers: {
-    'api-key': BREVO_API_KEY,
-    'Content-Type': 'application/json',
-  },
-});
 
 export interface EmailOptions {
   to: string | string[];
@@ -32,23 +23,37 @@ export const sendEmail = async (options: EmailOptions) => {
     : [{ email: options.to }];
 
   try {
-    const response = await brevoClient.post('/smtp/email', {
-      sender: {
-        name: BREVO_SENDER_NAME,
-        email: BREVO_SENDER_EMAIL,
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json',
       },
-      to: recipients,
-      subject: options.subject,
-      htmlContent: options.htmlContent,
-      textContent: options.textContent || options.htmlContent.replace(/<[^>]*>/g, ''),
+      body: JSON.stringify({
+        sender: {
+          name: BREVO_SENDER_NAME,
+          email: BREVO_SENDER_EMAIL,
+        },
+        to: recipients,
+        subject: options.subject,
+        htmlContent: options.htmlContent,
+        textContent: options.textContent || options.htmlContent.replace(/<[^>]*>/g, ''),
+      }),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Brevo API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
     logger.info('Email sent via Brevo', {
-      messageId: response.data.messageId,
+      messageId: data.messageId,
       recipients: recipients.length,
     });
 
-    return response.data;
+    return data;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to send email';
     logger.error('Failed to send email via Brevo', { error: message });
