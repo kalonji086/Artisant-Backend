@@ -271,3 +271,5 @@ router.patch('/settings', updatePlatformSettings);
  */
 router.get('/email-campaigns', getEmailCampaigns);
 router.post('/email-campaigns', sendEmailCampaign);
+
+export default router;
