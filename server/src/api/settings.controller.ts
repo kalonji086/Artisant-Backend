@@ -180,8 +180,9 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
       return res.status(400).json({ error: 'Aucun destinataire trouvé' });
     }
 
-    // Générer le template d'email
-    const htmlContent = generateEmailTemplate(subject, body);
+    // Générer le template d'email avec le logo
+    const logoUrl = `${process.env.APP_URL || 'http://localhost:3000'}/logo.png`;
+    const htmlContent = generateEmailTemplate(subject, body, undefined, undefined, logoUrl);
 
     // Envoyer l'email via Brevo
     console.log('[EMAIL] Sending to', recipients.length, 'recipients...');
