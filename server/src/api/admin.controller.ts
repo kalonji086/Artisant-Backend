@@ -89,16 +89,23 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       categoriesListRes,
     ];
     const failed = allResults.find((r) => r.error);
-    if (failed?.error) throw failed.error;
+    if (failed?.error) {
+      console.error('[STATS] Initial query failed:', failed.error);
+      throw failed.error;
+    }
+
+    console.log('[STATS] Initial queries OK, starting quote status queries...');
 
     const [quoteStatusResults, signupResults] = await Promise.all([
       Promise.all(
-        QUOTE_STATUSES.map((status) =>
-          supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', status)
-        )
+        QUOTE_STATUSES.map((status) => {
+          console.log(`[STATS] Quote status: ${status}`);
+          return supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', status);
+        })
       ),
       Promise.all(
         monthKeys.map((month) => {
+          console.log(`[STATS] Signup month: ${month}`);
           const range = getMonthRange(month);
           return supabase
             .from('profiles')
@@ -110,8 +117,15 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       ),
     ]);
 
+    console.log('[STATS] Quote and signup queries OK');
+
     const aggregateError = [...quoteStatusResults, ...signupResults].find((result) => result.error);
-    if (aggregateError?.error) throw aggregateError.error;
+    if (aggregateError?.error) {
+      console.error('[STATS] Aggregate query failed:', aggregateError.error);
+      throw aggregateError.error;
+    }
+
+    console.log('[STATS] Starting category services queries...');
 
     const quotesByStatus = QUOTE_STATUSES.map((status, index) => ({
       status,
@@ -123,20 +137,32 @@ export const getAdminStats = async (_req: Request, res: Response) => {
     }));
 
     const categories = categoriesListRes.data ?? [];
+    console.log(`[STATS] Categories count: ${categories.length}`);
+
     const serviceCountResults = await Promise.all([
-      ...categories.map((category) =>
-        supabase
+      ...categories.map((category) => {
+        console.log(`[STATS] Service count for category: ${category.id}`);
+        return supabase
           .from('artisan_services')
           .select('category_id', { count: 'exact', head: true })
-          .eq('category_id', category.id)
-      ),
-      supabase
-        .from('artisan_services')
-        .select('category_id', { count: 'exact', head: true })
-        .is('category_id', null),
+          .eq('category_id', category.id);
+      }),
+      (() => {
+        console.log('[STATS] Service count uncategorized');
+        return supabase
+          .from('artisan_services')
+          .select('category_id', { count: 'exact', head: true })
+          .is('category_id', null);
+      })(),
     ]);
+
+    console.log('[STATS] Service count queries OK');
+
     const serviceError = serviceCountResults.find((result) => result.error);
-    if (serviceError?.error) throw serviceError.error;
+    if (serviceError?.error) {
+      console.error('[STATS] Service count failed:', serviceError.error);
+      throw serviceError.error;
+    }
 
     const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
     const serviceCounts = new Map<string, number>();
