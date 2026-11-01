@@ -121,11 +121,19 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
     setProfileReady(false);
     const fetched = await fetchProfile(data.user.id);
-    if (!fetched || fetched.role !== 'admin') {
+
+    if (!fetched) {
       await supabase.auth.signOut();
       setProfile(null);
       setProfileReady(true);
-      return "Accès réservé aux administrateurs : ce compte n'a pas le rôle admin.";
+      return "Profil administrateur introuvable. Vérifiez votre compte dans la base de données.";
+    }
+
+    if (fetched.role !== 'admin') {
+      await supabase.auth.signOut();
+      setProfile(null);
+      setProfileReady(true);
+      return `Accès réservé aux administrateurs. Votre rôle actuel: "${fetched.role || 'aucun'}". Contactez le responsable pour obtenir l'accès admin.`;
     }
 
     setProfile(fetched);

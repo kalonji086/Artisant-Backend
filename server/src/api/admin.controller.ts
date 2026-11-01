@@ -425,3 +425,19 @@ export const updateEmployerRequestStatus = async (req: Request, res: Response) =
     res.status(500).json({ error: message });
   }
 };
+
+export const getDatabaseStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { SETUP_INSTRUCTIONS } = await import('../lib/init-database');
+
+    res.json({
+      status: 'Database initialization required',
+      message: 'Les tables Supabase doivent être créées manuellement via le SQL Editor de Supabase.',
+      setupInstructions: SETUP_INSTRUCTIONS,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erreur inconnue';
+    res.status(500).json({ error: message });
+  }
+};

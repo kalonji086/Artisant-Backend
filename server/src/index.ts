@@ -15,6 +15,7 @@ import { errorHandler } from './middleware/error-handler';
 import { correlationIdMiddleware } from './middleware/correlation-id';
 import { logger } from './lib/logger';
 import { setupSwagger } from './lib/swagger';
+import { initializeDatabase } from './lib/init-database';
 
 // ============================================
 // 1. Validation des variables d'environnement au démarrage
@@ -40,6 +41,9 @@ if (process.env.NODE_ENV === 'production' && corsOrigins.length === 0) {
   logger.error('La variable CORS_ORIGINS doit contenir au moins une origine autorisée en production');
   process.exit(1);
 }
+
+// Initialiser la base de données au démarrage
+void initializeDatabase();
 
 // ============================================
 // 2. Initialisation Express

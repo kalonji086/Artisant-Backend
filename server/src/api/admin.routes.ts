@@ -5,6 +5,7 @@ import {
   getQuotes,
   getUsers,
   updateEmployerRequestStatus,
+  getDatabaseStatus,
 } from './admin.controller';
 import { authenticate, requireAdmin } from '../middleware/auth';
 
@@ -86,6 +87,22 @@ router.get('/users', getUsers);
  *         description: Accès réservé aux administrateurs
  */
 router.get('/quotes', getQuotes);
+
+/**
+ * @swagger
+ * /api/v1/admin/db-status:
+ *   get:
+ *     summary: Vérifier l'état de la base de données (tables manquantes)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: État de la base de données avec instructions de configuration
+ *       403:
+ *         description: Accès réservé aux administrateurs
+ */
+router.get('/db-status', getDatabaseStatus);
 
 /**
  * @swagger
