@@ -198,6 +198,10 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       recentQuotes,
     });
   } catch (err: unknown) {
+    console.error('DEBUG: Full error object:', JSON.stringify(err, null, 2));
+    console.error('DEBUG: Error type:', typeof err);
+    console.error('DEBUG: Error instanceof Error:', err instanceof Error);
+
     const message =
       err instanceof Error
         ? err.message
@@ -207,8 +211,12 @@ export const getAdminStats = async (_req: Request, res: Response) => {
             typeof err.message === 'string'
           ? err.message
           : 'Erreur inconnue lors de la récupération des statistiques';
-    logger.error('Erreur lors de la récupération des statistiques', { error: message, fullError: err });
-    res.status(500).json({ error: message || 'Erreur serveur' });
+    logger.error('Erreur lors de la récupération des statistiques', {
+      error: message || 'ERROR_EMPTY',
+      fullError: err,
+      errorString: String(err)
+    });
+    res.status(500).json({ error: message || 'Erreur serveur (voir logs)' });
   }
 };
 
