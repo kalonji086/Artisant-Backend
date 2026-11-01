@@ -11,7 +11,20 @@ export const getPlatformSettings = async (req: Request, res: Response) => {
       .select('*')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[SETTINGS] Error fetching settings:', error);
+      // Si la table est vide ou n'existe pas, retourner les valeurs par défaut
+      return res.json({
+        id: true,
+        platform_name: 'ARTISANTS',
+        support_email: 'support@artisants.com',
+        sender_name: 'ARTISANTS',
+        sender_email: 'noreply@artisants.com',
+        reply_to_email: '',
+        updated_at: new Date().toISOString(),
+        updated_by: null,
+      });
+    }
 
     res.json(data);
   } catch (err: unknown) {
