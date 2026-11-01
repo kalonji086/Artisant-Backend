@@ -59,30 +59,6 @@ export const getAdminStats = async (_req: Request, res: Response) => {
   try {
     const monthKeys = buildMonthKeys(12);
 
-    console.log('[STATS] Starting stats collection...');
-
-    const queries = [
-      { name: 'totalProfiles', query: supabase.from('profiles').select('id', { count: 'exact', head: true }).in('role', PROFILE_ROLES) },
-      { name: 'clients', query: supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'client') },
-      { name: 'artisans', query: supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan') },
-      { name: 'activeArtisans', query: supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan').eq('is_available', true) },
-      { name: 'quotesTotal', query: supabase.from('quotes').select('id', { count: 'exact', head: true }) },
-      { name: 'categories', query: supabase.from('categories').select('id', { count: 'exact', head: true }) },
-      { name: 'pendingRequests', query: supabase.from('employer_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending') },
-      { name: 'recentProfiles', query: supabase.from('profiles').select('id, full_name, role, avatar_url, created_at').in('role', PROFILE_ROLES).order('created_at', { ascending: false }).limit(5) },
-      { name: 'recentQuotes', query: supabase.from('quotes').select('id, status, price, created_at, client_id, artisan_id').order('created_at', { ascending: false }).limit(5) },
-      { name: 'categoriesList', query: supabase.from('categories').select('id, name') },
-    ];
-
-    const results = await Promise.allSettled(
-      queries.map(async (q) => {
-        console.log(`[STATS] Executing: ${q.name}`);
-        const result = await q.query;
-        console.log(`[STATS] ${q.name} result:`, result.error ? `ERROR: ${JSON.stringify(result.error)}` : 'OK');
-        return result;
-      })
-    );
-
     const [
       totalProfilesRes,
       clientsRes,
@@ -94,7 +70,18 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       recentProfilesRes,
       recentQuotesRes,
       categoriesListRes,
-    ] = results.map((r) => (r.status === 'fulfilled' ? r.value : { error: { message: 'Promise rejected' }, data: null, count: 0 }));
+    ] = await Promise.all([
+      (() => { console.log('[STATS] totalProfiles'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).in('role', PROFILE_ROLES); })(),
+      (() => { console.log('[STATS] clients'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'client'); })(),
+      (() => { console.log('[STATS] artisans'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan'); })(),
+      (() => { console.log('[STATS] activeArtisans'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan').eq('is_available', true); })(),
+      (() => { console.log('[STATS] quotes'); return supabase.from('quotes').select('id', { count: 'exact', head: true }); })(),
+      (() => { console.log('[STATS] categories'); return supabase.from('categories').select('id', { count: 'exact', head: true }); })(),
+      (() => { console.log('[STATS] pendingRequests'); return supabase.from('employer_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'); })(),
+      (() => { console.log('[STATS] recentProfiles'); return supabase.from('profiles').select('id, full_name, role, avatar_url, created_at').in('role', PROFILE_ROLES).order('created_at', { ascending: false }).limit(5); })(),
+      (() => { console.log('[STATS] recentQuotes'); return supabase.from('quotes').select('id, status, price, created_at, client_id, artisan_id').order('created_at', { ascending: false }).limit(5); })(),
+      (() => { console.log('[STATS] categoriesList'); return supabase.from('categories').select('id, name'); })(),
+    ]);
 
     const allResults = [
       totalProfilesRes, clientsRes, artisansRes, activeArtisansRes, quotesTotalRes,
