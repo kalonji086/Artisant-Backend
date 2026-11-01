@@ -66,8 +66,12 @@ export const generateEmailTemplate = (
   title: string,
   content: string,
   ctaText?: string,
-  ctaUrl?: string
+  ctaUrl?: string,
+  logoUrl?: string
 ): string => {
+  // Logo par défaut si pas fourni
+  const logo = logoUrl || 'https://via.placeholder.com/80/3b82f6/ffffff?text=A';
+
   return `
 <!DOCTYPE html>
 <html lang="fr">
@@ -81,7 +85,8 @@ export const generateEmailTemplate = (
     .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
     .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 40px 30px; text-align: center; }
     .logo-container { margin-bottom: 20px; }
-    .logo { width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.2); display: inline-flex; align-items: center; justify-content: center; font-size: 40px; color: white; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .logo { width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.2); display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .logo img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
     .brand-name { color: white; font-size: 26px; font-weight: 700; margin: 0; letter-spacing: 0.5px; }
     .brand-subtitle { color: rgba(255,255,255,0.95); font-size: 13px; margin: 6px 0 0 0; font-weight: 500; letter-spacing: 1px; }
     .content { padding: 40px 30px; color: #1f2937; }
@@ -102,7 +107,9 @@ export const generateEmailTemplate = (
     <div class="container">
       <div class="header">
         <div class="logo-container">
-          <div class="logo">A</div>
+          <div class="logo">
+            <img src="${logo}" alt="ARTISANTS Logo">
+          </div>
         </div>
         <p class="brand-name">ARTISANTS</p>
         <p class="brand-subtitle">PLATEFORME</p>
