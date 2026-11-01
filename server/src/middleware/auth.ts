@@ -47,19 +47,45 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
   try {
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, full_name')
       .eq('id', user.id)
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      logger.error('Erreur lors de la lecture du profil admin', {
+        userId: user.id,
+        errorCode: (error as any).code,
+        errorMessage: error.message,
+      });
+      return res.status(500).json({
+        error: 'Erreur serveur lors de la vérification des droits d\'accès',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
 
-    if (!profile || profile.role !== 'admin') {
-      return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+    if (!profile) {
+      logger.warn('Profil introuvable pour utilisateur authentifié', { userId: user.id });
+      return res.status(403).json({
+        error: 'Profil administrateur introuvable',
+        details: 'Veuillez contacter un administrateur pour corriger votre compte'
+      });
+    }
+
+    if (profile.role !== 'admin') {
+      logger.warn('Utilisateur sans rôle admin tente d\'accéder à une route admin', {
+        userId: user.id,
+        currentRole: profile.role,
+        userName: profile.full_name,
+      });
+      return res.status(403).json({
+        error: 'Accès réservé aux administrateurs',
+        details: `Votre rôle actuel est: ${profile.role}`
+      });
     }
 
     next();
   } catch (err) {
-    logger.error('Erreur lors de la vérification du rôle admin', {
+    logger.error('Exception lors de la vérification du rôle admin', {
       userId: user.id,
       error: err instanceof Error ? err.message : String(err),
     });

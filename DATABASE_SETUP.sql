@@ -11,16 +11,23 @@
 --
 -- ═════════════════════════════════════════════════════════════════════════════
 
--- 1️⃣  Mise à jour de la contrainte CHECK sur la table 'profiles'
+-- 1️⃣  Ajouter la colonne 'role' à 'profiles' si elle n'existe pas
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role text DEFAULT 'client';
+
+-- 2️⃣  Ajouter la colonne 'is_available' à 'profiles' si elle n'existe pas (pour les artisans)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_available boolean DEFAULT true;
+
+-- 3️⃣  Ajouter les colonnes supplémentaires à 'profiles' si elles n'existent pas
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name text;
+
+-- 4️⃣  Mise à jour de la contrainte CHECK sur la table 'profiles'
 -- (autorise le rôle 'admin' en plus de 'client' et 'artisan')
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
   CHECK (role IN ('client', 'artisan', 'admin'));
 
--- 2️⃣  Ajouter la colonne 'role' si elle n'existe pas (pour la compatibilité)
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role text DEFAULT 'client';
-
--- 3️⃣  Créer la table 'categories' (catégories de services)
+-- 5️⃣  Créer la table 'categories' (catégories de services)
 CREATE TABLE IF NOT EXISTS public.categories (
   id bigserial PRIMARY KEY,
   name text NOT NULL UNIQUE,
@@ -30,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
   updated_at timestamp with time zone DEFAULT now()
 );
 
--- 4️⃣  Créer la table 'services' (services/métiers)
+-- 6️⃣  Créer la table 'services' (services/métiers)
 CREATE TABLE IF NOT EXISTS public.services (
   id bigserial PRIMARY KEY,
   category_id bigint NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
@@ -42,7 +49,7 @@ CREATE TABLE IF NOT EXISTS public.services (
   UNIQUE(category_id, name)
 );
 
--- 5️⃣  Créer la table 'quotes' (devis/demandes de service)
+-- 7️⃣  Créer la table 'quotes' (devis/demandes de service)
 CREATE TABLE IF NOT EXISTS public.quotes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -58,7 +65,7 @@ CREATE TABLE IF NOT EXISTS public.quotes (
   updated_at timestamp with time zone DEFAULT now()
 );
 
--- 6️⃣  Créer la table 'employer_requests' (demandes d'accès employeur)
+-- 8️⃣  Créer la table 'employer_requests' (demandes d'accès employeur)
 CREATE TABLE IF NOT EXISTS public.employer_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_name text NOT NULL,
@@ -76,7 +83,7 @@ CREATE TABLE IF NOT EXISTS public.employer_requests (
   reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
--- 7️⃣  Créer la table 'artisan_services' (services proposés par les artisans)
+-- 9️⃣  Créer la table 'artisan_services' (services proposés par les artisans)
 CREATE TABLE IF NOT EXISTS public.artisan_services (
   id bigserial PRIMARY KEY,
   artisan_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -88,7 +95,7 @@ CREATE TABLE IF NOT EXISTS public.artisan_services (
   UNIQUE(artisan_id, service_id)
 );
 
--- 8️⃣  Créer la table 'platform_settings' (paramètres de la plateforme - admin)
+-- 🔟  Créer la table 'platform_settings' (paramètres de la plateforme - admin)
 CREATE TABLE IF NOT EXISTS public.platform_settings (
   id bigserial PRIMARY KEY,
   key text NOT NULL UNIQUE,
@@ -97,6 +104,30 @@ CREATE TABLE IF NOT EXISTS public.platform_settings (
   updated_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   updated_at timestamp with time zone DEFAULT now()
 );
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- CORRECTION DU BUG: Améliorer la politique RLS pour les admins
+-- ═════════════════════════════════════════════════════════════════════════════
+
+-- Désactiver la politique RLS qui cache les admins pour le service-role
+-- (le service-role a accès complet, pas besoin de politique)
+
+-- Vérifier et corriger les politiques RLS sur profiles
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Créer une politique qui permet au service-role (backend) d'accéder à tous les profils
+CREATE POLICY "Service role can access all profiles"
+  ON public.profiles
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- Recréer la politique pour les utilisateurs publics (cache les admins)
+CREATE POLICY "Public users see non-admin profiles"
+  ON public.profiles
+  FOR SELECT
+  USING (role IS DISTINCT FROM 'admin');
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- VÉRIFICATION (optionnel) : voir ce qui a été créé
