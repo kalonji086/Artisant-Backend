@@ -62,18 +62,22 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
   const { platform_name, support_email, sender_name, sender_email, reply_to_email } = req.body;
 
   try {
+    // upsert : crée la ligne unique si elle n'existe pas encore
     const { data, error } = await supabase
       .from('admin_platform_settings')
-      .update({
-        platform_name: platform_name || undefined,
-        support_email: support_email || undefined,
-        sender_name: sender_name || undefined,
-        sender_email: sender_email || undefined,
-        reply_to_email: reply_to_email || undefined,
-        updated_at: new Date().toISOString(),
-        updated_by: admin.id,
-      })
-      .eq('id', true)
+      .upsert(
+        {
+          id: true,
+          ...(platform_name ? { platform_name } : {}),
+          ...(support_email ? { support_email } : {}),
+          ...(sender_name ? { sender_name } : {}),
+          ...(sender_email ? { sender_email } : {}),
+          ...(typeof reply_to_email === 'string' ? { reply_to_email } : {}),
+          updated_at: new Date().toISOString(),
+          updated_by: admin.id,
+        },
+        { onConflict: 'id' }
+      )
       .select()
       .single();
 
@@ -82,7 +86,8 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
     logger.info('Paramètres de plateforme mis à jour', { admin_id: admin.id });
     res.json(data);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Erreur lors de la mise à jour des paramètres';
+    const message =
+      (err as { message?: string } | null)?.message ?? 'Erreur lors de la mise à jour des paramètres';
     logger.error('Erreur lors de la mise à jour des paramètres', { error: message, admin_id: admin.id });
     res.status(500).json({ error: message });
   }
@@ -181,7 +186,8 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
     }
 
     // Générer le template d'email avec le logo
-    const logoUrl = `${process.env.APP_URL || 'http://localhost:3000'}/logo.png`;
+    const publicAppUrl = (process.env.APP_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+    const logoUrl = `${publicAppUrl}/logo.png`;
     const htmlContent = generateEmailTemplate(subject, body, undefined, undefined, logoUrl);
 
     // Envoyer l'email via Brevo
