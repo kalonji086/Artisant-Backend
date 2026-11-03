@@ -23,7 +23,10 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-// Une clé « anon » à la place de la clé « service_role » provoque des erreurs RLS sur toutes les écritures admin.
+// Une clé publique à la place de la clé secrète provoque des erreurs RLS sur toutes les écritures admin.
+if (supabaseServiceKey.startsWith('sb_publishable_')) {
+  console.error('ERREUR CRITIQUE: SUPABASE_SERVICE_ROLE_KEY contient la clé PUBLISHABLE. Utilisez la clé secrète (sb_secret_… ou service_role).');
+}
 try {
   const payload = JSON.parse(Buffer.from(supabaseServiceKey.split('.')[1] ?? '', 'base64url').toString('utf8'));
   if (payload.role && payload.role !== 'service_role') {
