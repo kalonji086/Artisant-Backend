@@ -22,6 +22,7 @@ import {
   CheckIcon,
   CloseIcon,
   DocumentIcon,
+  GridIcon,
   InboxIcon,
   ToolIcon,
   TrendIcon,
@@ -504,6 +505,7 @@ export default function Dashboard() {
       <PageHeader
         title="Tableau de bord"
         subtitle="Vue d'ensemble de la plateforme ARTISANTS"
+        icon={<GridIcon className="h-6 w-6" />}
         actions={
           <>
             <div className="flex flex-col gap-1 text-xs text-muted sm:items-end" aria-live="polite">

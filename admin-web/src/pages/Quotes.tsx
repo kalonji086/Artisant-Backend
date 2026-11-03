@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import AssignPanel, { type AssignTarget } from '../components/AssignPanel';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingBlock, PageHeader } from '../components/ui';
+import { EmptyState, ErrorState, FilterTabs, LoadingBlock, PageHeader, StatStrip } from '../components/ui';
+import { CheckIcon, ClockIcon, DocumentIcon, InboxIcon } from '../components/icons';
 import { AdminService, apiErrorMessage } from '../lib/api';
+import { useStats } from '../lib/useStats';
 import type { Paginated, Quote } from '../types';
-import { formatDate, formatPrice } from '../utils/format';
+import { formatDate, formatNumber, formatPrice } from '../utils/format';
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'Tous les statuts' },
+  { value: '', label: 'Tous' },
   { value: 'unassigned', label: 'À assigner' },
   { value: 'assigned', label: 'Assignés' },
   { value: 'pending', label: 'En attente' },
@@ -29,6 +31,9 @@ export default function Quotes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
+  const stats = useStats();
+  const countOf = (s: string) => stats?.quotesByStatus.find((q) => q.status === s)?.count ?? 0;
+  const dash = (n: number) => (stats ? formatNumber(n) : '—');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,24 +61,28 @@ export default function Quotes() {
       <PageHeader
         title="Devis"
         subtitle="Toutes les demandes de devis de la plateforme"
-        actions={
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
-            aria-label="Filtrer par statut"
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        }
+        icon={<DocumentIcon className="h-6 w-6" />}
       />
+
+      <StatStrip
+        tiles={[
+          { label: 'Total devis', value: dash(stats?.totals.quotes ?? 0), icon: <DocumentIcon className="h-5 w-5" />, tone: 'brand' },
+          { label: 'À assigner', value: dash(countOf('unassigned')), icon: <InboxIcon className="h-5 w-5" />, tone: 'amber' },
+          { label: 'En attente', value: dash(stats?.totals.quotesPending ?? 0), icon: <ClockIcon className="h-5 w-5" />, tone: 'violet' },
+          { label: 'Acceptés', value: dash(countOf('accepted')), icon: <CheckIcon className="h-5 w-5" />, tone: 'green' },
+        ]}
+      />
+
+      <div className="mb-4">
+        <FilterTabs
+          options={STATUS_OPTIONS}
+          value={status}
+          onChange={(v) => {
+            setStatus(v);
+            setPage(1);
+          }}
+        />
+      </div>
 
       {assignTarget ? (
         <div className="mb-4 max-w-2xl">
@@ -102,7 +111,7 @@ export default function Quotes() {
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 text-sm">
-              <thead className="bg-gray-50/70 text-left text-xs font-semibold tracking-wide text-muted uppercase">
+              <thead className="bg-gradient-to-r from-brand-light/70 to-gray-50 text-left text-xs font-semibold tracking-wide text-muted uppercase">
                 <tr>
                   <th className="px-4 py-3">Réf.</th>
                   <th className="px-4 py-3">Client</th>
@@ -116,7 +125,7 @@ export default function Quotes() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {result.data.map((quote) => (
-                  <tr key={quote.id} className="transition hover:bg-gray-50/60">
+                  <tr key={quote.id} className="transition hover:bg-brand-light/40">
                     <td className="px-4 py-3 font-mono text-xs text-muted">
                       {quote.id.slice(0, 8)}
                     </td>
@@ -145,7 +154,7 @@ export default function Quotes() {
                               label: `${quote.client_name ?? 'Client'} — ${quote.description || 'Sans description'}`,
                             })
                           }
-                          className="rounded-lg border border-brand px-3 py-1.5 text-xs font-semibold text-brand-dark transition hover:bg-brand-light"
+                          className="rounded-lg bg-gradient-to-r from-brand to-sky-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
                         >
                           {quote.status === 'unassigned' ? 'Assigner' : 'Réassigner'}
                         </button>

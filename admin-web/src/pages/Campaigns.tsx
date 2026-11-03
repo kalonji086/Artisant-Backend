@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState, ErrorState, LoadingBlock, PageHeader } from '../components/ui';
 import Pagination from '../components/Pagination';
-import { CopyIcon, SendIcon, TrashIcon } from '../components/icons';
+import { CopyIcon, MegaphoneIcon, SendIcon, TrashIcon } from '../components/icons';
 import { apiErrorMessage } from '../lib/api';
 import { Marketing, type Campaign, type CampaignStatus } from '../lib/marketing';
 import { supabase } from '../lib/supabase';
@@ -138,6 +138,7 @@ export default function Campaigns() {
       <PageHeader
         title="Campagnes"
         subtitle="Suivi en temps réel des envois, programmation et historique."
+        icon={<MegaphoneIcon className="h-6 w-6" />}
         actions={
           <>
             <button

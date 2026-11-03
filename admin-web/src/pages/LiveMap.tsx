@@ -3,7 +3,8 @@ import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-le
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import AssignPanel, { type AssignTarget } from '../components/AssignPanel';
-import { ErrorState, LoadingBlock, PageHeader } from '../components/ui';
+import { ErrorState, LoadingBlock, PageHeader, StatStrip } from '../components/ui';
+import { ClockIcon, DocumentIcon, MapIcon, ToolIcon, UsersIcon } from '../components/icons';
 import { supabase } from '../lib/supabase';
 
 interface PersonPoint {
@@ -201,20 +202,30 @@ export default function LiveMap() {
       <PageHeader
         title="Carte en direct"
         subtitle="Position GPS des clients et des artisans, mise à jour en temps réel"
+        icon={<MapIcon className="h-6 w-6" />}
         actions={
           <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset ${
               live ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-gray-100 text-gray-600 ring-gray-200'
             }`}
           >
-            <span className={`h-2 w-2 rounded-full ${live ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+            <span className={`h-2 w-2 rounded-full ${live ? 'animate-pulse bg-emerald-500' : 'bg-gray-400'}`} />
             {live ? 'En direct' : 'Connexion…'}
           </span>
         }
       />
 
+      <StatStrip
+        tiles={[
+          { label: 'Artisans en ligne', value: artisans.length, icon: <ToolIcon className="h-5 w-5" />, tone: 'green' },
+          { label: 'Clients en ligne', value: clients.length, icon: <UsersIcon className="h-5 w-5" />, tone: 'sky' },
+          { label: 'Devis à assigner', value: toAssign.length, icon: <DocumentIcon className="h-5 w-5" />, tone: 'amber' },
+          { label: 'Devis en cours', value: quotes.length - toAssign.length, icon: <ClockIcon className="h-5 w-5" />, tone: 'violet' },
+        ]}
+      />
+
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
-        <div className="h-[calc(100vh-14rem)] min-h-[420px] overflow-hidden rounded-2xl border border-gray-100 shadow-sm">
+        <div className="h-[calc(100vh-20rem)] min-h-[420px] overflow-hidden rounded-2xl border border-gray-100 shadow-lg ring-4 ring-white">
           <MapContainer center={[20, 0]} zoom={2} className="h-full w-full" scrollWheelZoom>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -269,7 +280,8 @@ export default function LiveMap() {
 
         <div className="space-y-4">
           <div className="rounded-2xl border border-gray-100 bg-white p-4 text-sm shadow-sm">
-            <Legend color={COLORS.artisan} label={`Artisans disponibles (${artisans.filter((a) => a.profile?.is_available !== false).length})`} />
+            <p className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">Légende</p>
+            <Legend color={COLORS.artisan} label={`Artisans disponibles (${artisans.filter((a) => a.profile?.is_available !== false)            .length})`} />
             <Legend color={COLORS.artisanOff} label="Artisans indisponibles" />
             <Legend color={COLORS.client} label={`Clients (${clients.length})`} />
             <Legend color={COLORS.unassigned} ring label={`Devis à assigner (${toAssign.length})`} />

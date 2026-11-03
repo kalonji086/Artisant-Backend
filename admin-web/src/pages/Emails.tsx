@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RichEditor from '../components/RichEditor';
 import { Spinner, PageHeader } from '../components/ui';
-import { ClockIcon, SendIcon, TrashIcon } from '../components/icons';
+import { ClockIcon, MailIcon, SendIcon, TrashIcon } from '../components/icons';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { apiErrorMessage } from '../lib/api';
 import {
@@ -187,6 +187,7 @@ export default function Emails() {
       <PageHeader
         title={editingId ? 'Modifier la campagne' : 'Rédiger un email'}
         subtitle="Éditeur façon Word, audience ciblée et envoi immédiat ou programmé."
+        icon={<MailIcon className="h-6 w-6" />}
       />
 
       {notice ? (

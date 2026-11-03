@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { useEffect, useState, type ReactNode } from 'react';
+import { MailIcon, SettingsIcon, ToolIcon } from '../components/icons';
+import { Card, ErrorState, LoadingBlock, PageHeader, Spinner } from '../components/ui';
+import { api, apiErrorMessage } from '../lib/api';
 
-interface Settings {
+interface PlatformSettings {
   id: boolean;
   platform_name: string;
   support_email: string;
@@ -11,35 +13,50 @@ interface Settings {
   updated_at: string;
 }
 
+type EditableKey = 'platform_name' | 'support_email' | 'sender_name' | 'sender_email' | 'reply_to_email';
+
+const INPUT =
+  'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-ink shadow-sm placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30';
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
+      {children}
+      {hint ? <span className="mt-1 block text-xs text-muted">{hint}</span> : null}
+    </label>
+  );
+}
+
 export default function Settings() {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<PlatformSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const data = await api.get('/admin/settings');
-      setSettings(data);
+      setSettings(await api.get('/admin/settings'));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
-      console.error('Erreur:', err);
+      setError(apiErrorMessage(err, 'Erreur lors du chargement des paramètres.'));
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    void fetchSettings();
+  }, []);
+
+  const set = (key: EditableKey, value: string) =>
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settings) return;
-
     try {
       setSaving(true);
       await api.patch('/admin/settings', {
@@ -53,110 +70,118 @@ export default function Settings() {
       setTimeout(() => setSaved(false), 3000);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde');
-      console.error('Erreur:', err);
+      setError(apiErrorMessage(err, 'Erreur lors de la sauvegarde.'));
     } finally {
       setSaving(false);
     }
   };
 
+  const header = (
+    <PageHeader
+      title="Paramètres"
+      subtitle="Identité de la plateforme et expéditeur des emails"
+      icon={<SettingsIcon className="h-6 w-6" />}
+    />
+  );
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto mb-4"></div>
-          <p className="text-muted">Chargement des paramètres...</p>
-        </div>
+      <div>
+        {header}
+        <LoadingBlock label="Chargement des paramètres…" />
+      </div>
+    );
+  }
+
+  if (!settings) {
+    return (
+      <div>
+        {header}
+        <ErrorState message={error ?? 'Paramètres indisponibles.'} onRetry={() => void fetchSettings()} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-ink">Paramètres</h1>
-        <p className="mt-1 text-sm text-muted">Gérez les paramètres de la plateforme ARTISANTS</p>
-      </div>
+    <div>
+      {header}
 
-      {error && (
-        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-800">
-          ✗ {error}
+      {error ? (
+        <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+          {error}
         </div>
-      )}
-
-      {saved && (
-        <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800">
-          ✓ Paramètres enregistrés avec succès
+      ) : null}
+      {saved ? (
+        <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          Paramètres enregistrés avec succès.
         </div>
-      )}
+      ) : null}
 
-      {settings && (
-        <form onSubmit={handleSave} className="rounded-xl border border-gray-200 bg-white p-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-ink mb-2">Nom de la plateforme</label>
-              <input
-                type="text"
-                value={settings.platform_name}
-                onChange={(e) => setSettings({ ...settings, platform_name: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-              />
+      <form onSubmit={handleSave} className="grid gap-5 xl:grid-cols-[1fr_22rem]">
+        <div className="space-y-5">
+          <Card title="Plateforme" subtitle="Informations générales" icon={<ToolIcon className="h-5 w-5" />}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nom de la plateforme">
+                <input type="text" value={settings.platform_name} onChange={(e) => set('platform_name', e.target.value)} className={INPUT} />
+              </Field>
+              <Field label="Email de support" hint="Affiché aux utilisateurs pour toute demande d'aide.">
+                <input type="email" value={settings.support_email} onChange={(e) => set('support_email', e.target.value)} className={INPUT} />
+              </Field>
             </div>
+          </Card>
 
-            <div>
-              <label className="block text-sm font-medium text-ink mb-2">Email de support</label>
-              <input
-                type="email"
-                value={settings.support_email}
-                onChange={(e) => setSettings({ ...settings, support_email: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-              />
+          <Card title="Expéditeur des emails" subtitle="Utilisé pour les campagnes et notifications" icon={<MailIcon className="h-5 w-5" />}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nom de l'expéditeur">
+                <input type="text" value={settings.sender_name} onChange={(e) => set('sender_name', e.target.value)} className={INPUT} />
+              </Field>
+              <Field label="Email d'envoi" hint="Doit être un expéditeur validé chez Brevo.">
+                <input type="email" value={settings.sender_email} onChange={(e) => set('sender_email', e.target.value)} className={INPUT} />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Email de réponse">
+                  <input type="email" value={settings.reply_to_email} onChange={(e) => set('reply_to_email', e.target.value)} className={INPUT} />
+                </Field>
+              </div>
             </div>
+          </Card>
 
-            <div>
-              <label className="block text-sm font-medium text-ink mb-2">Nom de l'expéditeur</label>
-              <input
-                type="text"
-                value={settings.sender_name}
-                onChange={(e) => setSettings({ ...settings, sender_name: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-ink mb-2">Email d'envoi</label>
-              <input
-                type="email"
-                value={settings.sender_email}
-                onChange={(e) => setSettings({ ...settings, sender_email: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-ink mb-2">Email de réponse</label>
-              <input
-                type="email"
-                value={settings.reply_to_email}
-                onChange={(e) => setSettings({ ...settings, reply_to_email: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-              />
-            </div>
-
-            <div className="text-xs text-muted">
-              Dernière modification : {new Date(settings.updated_at).toLocaleString('fr-FR')}
-            </div>
-
+          <div className="flex items-center gap-4">
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand to-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:opacity-90 disabled:opacity-60"
             >
-              {saving ? 'Enregistrement...' : 'Enregistrer les paramètres'}
+              {saving ? <Spinner className="h-4 w-4" /> : null}
+              {saving ? 'Enregistrement…' : 'Enregistrer les paramètres'}
             </button>
+            <span className="text-xs text-muted">
+              Dernière modification : {new Date(settings.updated_at).toLocaleString('fr-FR')}
+            </span>
           </div>
-        </form>
-      )}
+        </div>
+
+        <aside>
+          <Card title="Aperçu de l'email" subtitle="Ce que verront vos destinataires" icon={<MailIcon className="h-5 w-5" />}>
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-xs font-medium tracking-wide text-muted uppercase">De</dt>
+                <dd className="font-medium text-ink">
+                  {settings.sender_name || '—'} <span className="text-muted">&lt;{settings.sender_email || '—'}&gt;</span>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium tracking-wide text-muted uppercase">Répondre à</dt>
+                <dd className="text-ink">{settings.reply_to_email || '—'}</dd>
+              </div>
+              <div className="rounded-xl bg-gradient-to-br from-[#0b1b33] to-[#0d2548] p-4 text-white">
+                <p className="text-sm font-bold tracking-wide">{settings.platform_name || 'ARTISANTS'}</p>
+                <p className="mt-1 text-xs text-white/70">Support : {settings.support_email || '—'}</p>
+              </div>
+            </dl>
+          </Card>
+        </aside>
+      </form>
     </div>
   );
 }

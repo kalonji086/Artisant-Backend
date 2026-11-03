@@ -22,8 +22,9 @@ interface StatCardProps {
 export default function StatCard({ label, value, hint, icon, tone = 'brand' }: StatCardProps) {
   const palette = TONES[tone];
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
+    <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <span className={`pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full opacity-60 ${palette.box}`} />
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-muted">{label}</p>
           <p className="mt-2 text-3xl font-bold tracking-tight text-ink">{value}</p>

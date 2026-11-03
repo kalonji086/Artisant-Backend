@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import DecisionModal from '../components/DecisionModal';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
-import { CheckIcon, CloseIcon } from '../components/icons';
+import { BriefcaseIcon, CheckIcon, CloseIcon } from '../components/icons';
 import { EmptyState, ErrorState, LoadingBlock, PageHeader } from '../components/ui';
 import { AdminService, apiErrorMessage } from '../lib/api';
 import type { EmployerRequest, Paginated } from '../types';
@@ -92,6 +92,7 @@ export default function EmployerRequests() {
       <PageHeader
         title="Demandes employeur"
         subtitle="Validez les entreprises souhaitant publier des offres d'emploi"
+        icon={<BriefcaseIcon className="h-6 w-6" />}
       />
 
       {/* Onglets de filtre */}

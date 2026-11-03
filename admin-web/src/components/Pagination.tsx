@@ -11,7 +11,7 @@ export default function Pagination({ pagination, onPage }: PaginationProps) {
   if (total === 0) return null;
 
   return (
-    <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+    <div className="mt-4 flex flex-col items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row">
       <p className="text-sm text-muted">
         {total} résultat{total > 1 ? 's' : ''} — page {page} / {totalPages}
       </p>
