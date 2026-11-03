@@ -7,6 +7,7 @@ import {
   CloseIcon,
   DocumentIcon,
   GridIcon,
+  MapIcon,
   LogoutIcon,
   MailIcon,
   MenuIcon,
@@ -24,6 +25,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Tableau de bord', icon: <GridIcon className="h-5 w-5" />, end: true },
   { to: '/utilisateurs', label: 'Utilisateurs', icon: <UsersIcon className="h-5 w-5" /> },
+  { to: '/carte', label: 'Carte en direct', icon: <MapIcon className="h-5 w-5" /> },
   { to: '/devis', label: 'Devis', icon: <DocumentIcon className="h-5 w-5" /> },
   { to: '/demandes-employeur', label: 'Demandes employeur', icon: <BriefcaseIcon className="h-5 w-5" /> },
   { to: '/parametres', label: 'Paramètres', icon: <SettingsIcon className="h-5 w-5" /> },

@@ -1,5 +1,7 @@
 const META: Record<string, { label: string; className: string }> = {
   // Statuts de devis
+  unassigned: { label: 'À assigner', className: 'bg-orange-50 text-orange-700 ring-orange-200' },
+  assigned: { label: 'Assigné', className: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
   pending: { label: 'En attente', className: 'bg-amber-50 text-amber-700 ring-amber-200' },
   accepted: { label: 'Accepté', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
   rejected: { label: 'Rejeté', className: 'bg-rose-50 text-rose-700 ring-rose-200' },

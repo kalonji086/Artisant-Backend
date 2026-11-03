@@ -63,7 +63,12 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        connectSrc: ["'self'", ...(supabaseOrigin ? [supabaseOrigin] : [])],
+        connectSrc: [
+          "'self'",
+          ...(supabaseOrigin ? [supabaseOrigin, supabaseOrigin.replace(/^http/, 'ws')] : []),
+        ],
+        // Tuiles de la carte admin (OpenStreetMap).
+        imgSrc: ["'self'", 'data:', 'https://tile.openstreetmap.org'],
       },
     },
   })
@@ -136,6 +141,9 @@ app.get('/', (_req, res) => {
 // Servi en same-origin → aucune config CORS requise
 // ============================================
 const adminDistPath = path.join(__dirname, '..', 'public', 'admin');
+app.get('/logo.png', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'logo.png'));
+});
 app.use('/admin', express.static(adminDistPath));
 app.get(['/admin', '/admin/'], (_req, res) => {
   res.sendFile(path.join(adminDistPath, 'index.html'));

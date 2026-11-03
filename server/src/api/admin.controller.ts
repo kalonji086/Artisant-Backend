@@ -5,7 +5,7 @@ import { updateEmployerRequestSchema } from '../lib/validation';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
-const QUOTE_STATUSES = ['pending', 'accepted', 'rejected', 'completed'] as const;
+const QUOTE_STATUSES = ['unassigned', 'assigned', 'pending', 'accepted', 'rejected', 'completed'] as const;
 const PROFILE_ROLES = ['client', 'artisan'] as const;
 const EMPLOYER_REQUEST_STATUSES = ['pending', 'approved', 'rejected'] as const;
 
@@ -193,7 +193,7 @@ export const getAdminStats = async (_req: Request, res: Response) => {
     const recentQuotes = recentQuoteRows.map((q) => ({
       ...q,
       client_name: quoteProfileNames[q.client_id] ?? '—',
-      artisan_name: quoteProfileNames[q.artisan_id] ?? '—',
+      artisan_name: q.artisan_id ? (quoteProfileNames[q.artisan_id] ?? '—') : 'Non assigné',
     }));
 
     res.json({
@@ -313,7 +313,7 @@ export const getQuotes = async (req: Request, res: Response) => {
       data: rows.map((q) => ({
         ...q,
         client_name: names[q.client_id] ?? '—',
-        artisan_name: names[q.artisan_id] ?? '—',
+        artisan_name: q.artisan_id ? (names[q.artisan_id] ?? '—') : 'Non assigné',
       })),
       pagination: { page, pageSize, total: count ?? 0, totalPages: Math.max(1, Math.ceil((count ?? 0) / pageSize)) },
     });

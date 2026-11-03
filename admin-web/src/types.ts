@@ -1,5 +1,5 @@
 export type ProfileRole = 'client' | 'artisan';
-export type QuoteStatus = 'pending' | 'accepted' | 'rejected' | 'completed';
+export type QuoteStatus = 'unassigned' | 'assigned' | 'pending' | 'accepted' | 'rejected' | 'completed';
 export type EmployerRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Profile {
@@ -17,7 +17,9 @@ export interface Profile {
 export interface Quote {
   id: string;
   client_id: string;
-  artisan_id: string;
+  artisan_id: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   service_id: string | null;
   description: string | null;
   status: QuoteStatus;

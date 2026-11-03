@@ -24,43 +24,24 @@ export const createQuoteRequest = async (req: Request, res: Response) => {
     });
   }
 
-  const { artisan_id, service_id, description } = validationResult.data;
-
-  // Vérifier que l'artisan n'est pas le client lui-même
-  if (artisan_id === user.id) {
-    return res.status(403).json({ error: 'Vous ne pouvez pas créer un devis pour votre propre profil' });
-  }
+  const { service_id, description, latitude, longitude } = validationResult.data;
 
   try {
+    // La demande n'a pas d'artisan : elle attend l'assignation par l'Admin.
     const { data: quote, error } = await supabase
       .from('quotes')
       .insert({
         client_id: user.id,
-        artisan_id,
         service_id,
         description: String(description).trim(),
-        status: 'pending'
+        status: 'unassigned',
+        latitude,
+        longitude,
       })
       .select()
       .single();
 
     if (error) throw error;
-
-    // Récupérer le token push de l'artisan
-    const { data: artisan } = await supabase
-      .from('profiles')
-      .select('full_name, expo_push_token')
-      .eq('id', artisan_id)
-      .single();
-
-    if (artisan?.expo_push_token) {
-      await sendPushNotification(
-        artisan.expo_push_token,
-        'Nouveau devis !',
-        `Vous avez reçu une nouvelle demande de devis de la part d'un client.`,
-        { quoteId: quote.id }
-      );
-    }
 
     res.status(201).json(quote);
   } catch (err: unknown) {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import AssignPanel, { type AssignTarget } from '../components/AssignPanel';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingBlock, PageHeader } from '../components/ui';
@@ -8,6 +9,8 @@ import { formatDate, formatPrice } from '../utils/format';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Tous les statuts' },
+  { value: 'unassigned', label: 'À assigner' },
+  { value: 'assigned', label: 'Assignés' },
   { value: 'pending', label: 'En attente' },
   { value: 'accepted', label: 'Acceptés' },
   { value: 'rejected', label: 'Rejetés' },
@@ -25,6 +28,7 @@ export default function Quotes() {
   const [result, setResult] = useState<Paginated<Quote>>(EMPTY_PAGE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,6 +75,20 @@ export default function Quotes() {
         }
       />
 
+      {assignTarget ? (
+        <div className="mb-4 max-w-2xl">
+          <AssignPanel
+            key={assignTarget.id}
+            target={assignTarget}
+            onAssigned={() => {
+              setAssignTarget(null);
+              void load();
+            }}
+            onClose={() => setAssignTarget(null)}
+          />
+        </div>
+      ) : null}
+
       {loading ? (
         <LoadingBlock label="Chargement des devis…" />
       ) : error ? (
@@ -93,6 +111,7 @@ export default function Quotes() {
                   <th className="px-4 py-3">Prix</th>
                   <th className="px-4 py-3">Statut</th>
                   <th className="px-4 py-3">Créé le</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -114,6 +133,23 @@ export default function Quotes() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-muted">
                       {formatDate(quote.created_at)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {quote.status === 'unassigned' || quote.status === 'assigned' || quote.status === 'pending' ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAssignTarget({
+                              kind: 'quote',
+                              id: quote.id,
+                              label: `${quote.client_name ?? 'Client'} — ${quote.description || 'Sans description'}`,
+                            })
+                          }
+                          className="rounded-lg border border-brand px-3 py-1.5 text-xs font-semibold text-brand-dark transition hover:bg-brand-light"
+                        >
+                          {quote.status === 'unassigned' ? 'Assigner' : 'Réassigner'}
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

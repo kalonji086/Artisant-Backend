@@ -4,9 +4,11 @@ import { createCorrelationLogger } from './logger';
 
 // Schéma de validation pour la création de devis
 export const createQuoteSchema = z.object({
-  artisan_id: z.string().uuid('artisan_id doit être un UUID valide'),
-  service_id: z.string().uuid('service_id doit être un UUID valide'),
+  // Pas d'artisan_id : l'Admin assigne la demande à un artisan proche du client.
+  service_id: z.string().uuid('service_id doit être un UUID valide').optional(),
   description: z.string().min(1, 'La description est requise').max(1000),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
 });
 
 // Schéma de validation pour la mise à jour de statut de devis

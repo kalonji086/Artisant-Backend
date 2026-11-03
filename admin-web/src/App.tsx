@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import EmployerRequests from './pages/EmployerRequests';
 import Emails from './pages/Emails';
 import Login from './pages/Login';
+import LiveMap from './pages/LiveMap';
 import Quotes from './pages/Quotes';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
@@ -45,6 +46,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="utilisateurs" element={<Users />} />
+        <Route path="carte" element={<LiveMap />} />
         <Route path="devis" element={<Quotes />} />
         <Route path="demandes-employeur" element={<EmployerRequests />} />
         <Route path="parametres" element={<Settings />} />
