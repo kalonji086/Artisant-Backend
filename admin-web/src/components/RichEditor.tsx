@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 interface Props {
   initialHtml: string;
   onChange: (html: string) => void;
+  hideVariables?: boolean;
 }
 
 const FONTS = ['Arial', 'Georgia', 'Times New Roman', 'Verdana', 'Trebuchet MS', 'Courier New'];
@@ -74,7 +75,7 @@ const Divider = () => <span className="mx-1 h-6 w-px bg-gray-300" aria-hidden="t
 
 const selectClass = 'h-8 rounded border border-gray-300 bg-white px-1.5 text-sm text-gray-700 focus:outline-none';
 
-export default function RichEditor({ initialHtml, onChange }: Props) {
+export default function RichEditor({ initialHtml, onChange, hideVariables }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
 
@@ -186,6 +187,7 @@ export default function RichEditor({ initialHtml, onChange }: Props) {
         <ToolButton label="Ligne de séparation" onClick={() => run('insertHorizontalRule')}>―</ToolButton>
         <ToolButton label="Effacer la mise en forme" onClick={() => run('removeFormat')}>Tx</ToolButton>
         <Divider />
+        {hideVariables ? null : (
         <select
           aria-label="Insérer une variable"
           className={selectClass}
@@ -199,6 +201,7 @@ export default function RichEditor({ initialHtml, onChange }: Props) {
             <option key={v.value} value={v.value}>{v.label}  {v.value}</option>
           ))}
         </select>
+        )}
       </div>
 
       <div className="bg-slate-200/70 p-3 sm:p-6">

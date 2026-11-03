@@ -56,6 +56,11 @@ export const api = {
     return response.data;
   },
 
+  async put<T = any>(url: string, data?: any): Promise<T> {
+    const response = await apiClient.put<T>(url, data);
+    return response.data;
+  },
+
   async patch<T = any>(url: string, data?: any): Promise<T> {
     const response = await apiClient.patch<T>(url, data);
     return response.data;

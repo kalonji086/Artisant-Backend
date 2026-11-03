@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { DocumentIcon, ExternalLinkIcon, MailIcon, MegaphoneIcon, SettingsIcon, ToolIcon } from '../components/icons';
 import { Card, ErrorState, LoadingBlock, PageHeader, Spinner } from '../components/ui';
 import { api, apiErrorMessage } from '../lib/api';
+import LegalEditor from '../components/LegalEditor';
 
 interface PlatformSettings {
   id: boolean;
@@ -207,6 +208,8 @@ export default function Settings() {
               </a>
             </div>
           </Card>
+
+          <LegalEditor />
 
           <div className="flex items-center gap-4">
             <button

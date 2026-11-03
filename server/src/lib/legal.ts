@@ -5,12 +5,47 @@ interface Section {
   html: string;
 }
 
-const UPDATED = '3 novembre 2026';
+const DEFAULT_UPDATED = '3 novembre 2026';
+
+export interface CustomDoc {
+  html: string;
+  updatedAt: string;
+}
+
+/** Nettoyage minimal du HTML saisi par l'admin : pas de scripts, de gestionnaires d'événements ni d'URL javascript:. */
+export const sanitizeLegalHtml = (html: string): string =>
+  html
+    .replace(/<(script|style|iframe|object|embed|form|meta|link)\b[\s\S]*?(<\/\1\s*>|$)/gi, '')
+    .replace(/<(script|style|iframe|object|embed|form|meta|link)\b[^>]*>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s(href|src)\s*=\s*("|')\s*(javascript|data|vbscript):[^"']*\2/gi, ' $1="#"');
+
+const stripTags = (v: string): string => v.replace(/<[^>]*>/g, '').trim();
+
+/** Découpe le HTML personnalisé en sections à chaque <h2> pour conserver sommaire et numérotation. */
+const sectionsFromHtml = (html: string): Section[] => {
+  const parts = html.split(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+  const sections: Section[] = [];
+  if (parts[0].trim()) sections.push({ title: 'Introduction', html: parts[0] });
+  for (let i = 1; i < parts.length; i += 2) {
+    sections.push({ title: stripTags(parts[i]) || `Section ${sections.length + 1}`, html: parts[i + 1] ?? '' });
+  }
+  return sections;
+};
+
+const formatDate = (iso?: string): string => {
+  if (!iso) return DEFAULT_UPDATED;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? DEFAULT_UPDATED
+    : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
+};
 
 const layout = (opts: {
   title: string;
   intro: string;
   sections: Section[];
+  updated?: string;
   branding: Branding;
   baseUrl: string;
   other: { href: string; label: string };
@@ -86,7 +121,7 @@ const layout = (opts: {
     <div class="brand"><img src="${baseUrl}/logo.png" alt="${name}"><div><b>${name}</b><small>Plateforme d'artisans</small></div></div>
     <h1>${title}</h1>
     <p>${intro}</p>
-    <span class="badge">Dernière mise à jour : ${UPDATED}</span>
+    <span class="badge">Dernière mise à jour : ${formatDate(opts.updated)}</span>
   </div>
 </header>
 <main class="wrap">
@@ -112,7 +147,7 @@ const layout = (opts: {
 </html>`;
 };
 
-export const renderPrivacyPage = (branding: Branding, baseUrl: string): string => {
+const privacySections = (branding: Branding, baseUrl: string): Section[] => {
   const email = escapeHtml(branding.contactEmail);
   const name = escapeHtml(branding.platformName);
   const sections: Section[] = [
@@ -200,18 +235,29 @@ export const renderPrivacyPage = (branding: Branding, baseUrl: string): string =
       html: `<p>Nous pouvons mettre à jour cette politique. La date de dernière mise à jour figure en haut de la page ; en cas de changement important, nous vous en informerons dans l'application ou par email.</p>`,
     },
   ];
+  return sections;
+};
 
-  return layout({
+export const renderPrivacyPage = (branding: Branding, baseUrl: string, custom?: CustomDoc | null): string =>
+  layout({
     title: 'Politique de confidentialité',
     intro: 'Comment nous collectons, utilisons et protégeons vos données personnelles.',
-    sections,
+    sections: custom ? sectionsFromHtml(custom.html) : privacySections(branding, baseUrl),
+    updated: custom?.updatedAt,
     branding,
     baseUrl,
     other: { href: `${baseUrl}/legal/terms`, label: 'Lire les conditions d\'utilisation →' },
   });
-};
 
-export const renderTermsPage = (branding: Branding, baseUrl: string): string => {
+export type LegalSlug = 'privacy' | 'terms';
+
+/** HTML modifiable par défaut : chaque section devient un <h2> suivi de son contenu. */
+export const defaultLegalHtml = (slug: LegalSlug, branding: Branding, baseUrl: string): string =>
+  (slug === 'privacy' ? privacySections(branding, baseUrl) : termsSections(branding, baseUrl))
+    .map((s) => `<h2>${s.title}</h2>\n${s.html}`)
+    .join('\n');
+
+const termsSections = (branding: Branding, baseUrl: string): Section[] => {
   const email = escapeHtml(branding.contactEmail);
   const name = escapeHtml(branding.platformName);
   const sections: Section[] = [
@@ -290,13 +336,16 @@ export const renderTermsPage = (branding: Branding, baseUrl: string): string => 
       html: `<p>Nous pouvons modifier ces conditions. Les changements importants vous seront notifiés ; la poursuite de l'utilisation du service après leur entrée en vigueur vaut acceptation.</p>`,
     },
   ];
+  return sections;
+};
 
-  return layout({
+export const renderTermsPage = (branding: Branding, baseUrl: string, custom?: CustomDoc | null): string =>
+  layout({
     title: 'Conditions d\'utilisation',
     intro: 'Les règles qui encadrent l\'utilisation de la plateforme par les clients et les artisans.',
-    sections,
+    sections: custom ? sectionsFromHtml(custom.html) : termsSections(branding, baseUrl),
+    updated: custom?.updatedAt,
     branding,
     baseUrl,
     other: { href: `${baseUrl}/legal/privacy`, label: 'Lire la politique de confidentialité →' },
   });
-};

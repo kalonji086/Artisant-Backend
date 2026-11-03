@@ -14,6 +14,7 @@ import webhookRoutes from './api/webhook.routes';
 import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
 import { getBranding } from './lib/branding';
 import { renderPrivacyPage, renderTermsPage } from './lib/legal';
+import { getCustomDoc } from './api/legal.controller';
 import { startCampaignScheduler } from './lib/marketing';
 import { errorHandler } from './middleware/error-handler';
 import { correlationIdMiddleware } from './middleware/correlation-id';
@@ -157,10 +158,14 @@ app.get('/logo.png', (_req, res) => {
 const legalBase = (req: express.Request) =>
   (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
 app.get('/legal/privacy', async (req, res) => {
-  res.type('html').send(renderPrivacyPage(await getBranding(), legalBase(req)));
+  res.set('Cache-Control', 'no-cache').type('html').send(
+    renderPrivacyPage(await getBranding(), legalBase(req), await getCustomDoc('privacy'))
+  );
 });
 app.get('/legal/terms', async (req, res) => {
-  res.type('html').send(renderTermsPage(await getBranding(), legalBase(req)));
+  res.set('Cache-Control', 'no-cache').type('html').send(
+    renderTermsPage(await getBranding(), legalBase(req), await getCustomDoc('terms'))
+  );
 });
 app.use('/admin', express.static(adminDistPath));
 app.get(['/admin', '/admin/'], (_req, res) => {

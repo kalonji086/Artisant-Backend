@@ -14,6 +14,7 @@ import {
   sendEmailCampaign,
 } from './settings.controller';
 import { authenticate, requireAdmin } from '../middleware/auth';
+import { getLegalDocument, saveLegalDocument, resetLegalDocument } from './legal.controller';
 
 const router = Router();
 
@@ -220,6 +221,9 @@ router.patch('/employer-requests/:id', updateEmployerRequestStatus);
  */
 router.get('/settings', getPlatformSettings);
 router.patch('/settings', updatePlatformSettings);
+router.get('/legal/:slug', getLegalDocument);
+router.put('/legal/:slug', saveLegalDocument);
+router.delete('/legal/:slug', resetLegalDocument);
 
 /**
  * @swagger
