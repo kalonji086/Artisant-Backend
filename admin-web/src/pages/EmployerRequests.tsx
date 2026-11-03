@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import DecisionModal from '../components/DecisionModal';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
-import { BriefcaseIcon, CheckIcon, CloseIcon } from '../components/icons';
-import { EmptyState, ErrorState, LoadingBlock, PageHeader } from '../components/ui';
+import { BriefcaseIcon, CheckIcon, ClockIcon, CloseIcon, InboxIcon } from '../components/icons';
+import { EmptyState, ErrorState, FilterTabs, LoadingBlock, PageHeader, StatStrip } from '../components/ui';
 import { AdminService, apiErrorMessage } from '../lib/api';
+import { useStats } from '../lib/useStats';
 import type { EmployerRequest, Paginated } from '../types';
-import { formatDate } from '../utils/format';
+import { formatDate, formatNumber, initials } from '../utils/format';
 
 const TABS = [
   { value: '', label: 'Toutes' },
@@ -33,6 +34,8 @@ export default function EmployerRequests() {
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [flash, setFlash] = useState<Flash>(null);
+  const stats = useStats();
+  const pendingTotal = stats?.totals.employerRequestsPending;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,26 +98,24 @@ export default function EmployerRequests() {
         icon={<BriefcaseIcon className="h-6 w-6" />}
       />
 
-      {/* Onglets de filtre */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {TABS.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => {
-              setStatus(tab.value);
-              setPage(1);
-            }}
-            className={[
-              'rounded-full px-4 py-1.5 text-sm font-medium transition',
-              status === tab.value
-                ? 'bg-brand text-white shadow-sm shadow-brand/30'
-                : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-50',
-            ].join(' ')}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <StatStrip
+        tiles={[
+          { label: 'À traiter', value: pendingTotal === undefined ? '—' : formatNumber(pendingTotal), icon: <ClockIcon className="h-5 w-5" />, tone: 'amber' },
+          { label: 'Demandes affichées', value: formatNumber(result.pagination.total), icon: <InboxIcon className="h-5 w-5" />, tone: 'brand' },
+          { label: 'Offres d\'emploi', value: stats ? formatNumber(stats.totals.jobs) : '—', icon: <BriefcaseIcon className="h-5 w-5" />, tone: 'violet' },
+          { label: 'Catégories', value: stats ? formatNumber(stats.totals.categories) : '—', icon: <CheckIcon className="h-5 w-5" />, tone: 'green' },
+        ]}
+      />
+
+      <div className="mb-4">
+        <FilterTabs
+          options={TABS}
+          value={status}
+          onChange={(v) => {
+            setStatus(v);
+            setPage(1);
+          }}
+        />
       </div>
 
       {flash ? (
@@ -145,10 +146,15 @@ export default function EmployerRequests() {
           {result.data.map((request) => (
             <div
               key={request.id}
-              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+              className="rounded-2xl border border-gray-100 border-l-4 bg-white p-5 shadow-sm transition hover:shadow-md"
+              style={{ borderLeftColor: request.status === 'pending' ? '#f59e0b' : request.status === 'approved' ? '#10b981' : '#f43f5e' }}
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
+                <div className="flex min-w-0 gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-sky-400 text-sm font-bold text-white shadow-sm">
+                    {initials(request.company_name)}
+                  </span>
+                  <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold text-ink">{request.company_name}</h3>
                     <StatusBadge value={request.status} />
@@ -168,6 +174,7 @@ export default function EmployerRequests() {
                       <span className="font-semibold">Note admin :</span> {request.admin_notes}
                     </p>
                   ) : null}
+                  </div>
                 </div>
 
                 {request.status === 'pending' ? (
@@ -178,7 +185,7 @@ export default function EmployerRequests() {
                         setDecisionError(null);
                         setDecision({ request, tone: 'approve' });
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-500/25 transition hover:opacity-90"
                     >
                       <CheckIcon className="h-4 w-4" />
                       Approuver

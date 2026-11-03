@@ -9,6 +9,7 @@ import {
   ChevronsRightIcon,
   CloseIcon,
   DocumentIcon,
+  ExternalLinkIcon,
   GridIcon,
   LogoutIcon,
   MailIcon,
@@ -32,6 +33,8 @@ interface NavGroup {
 }
 
 const icon = 'h-5 w-5 shrink-0';
+
+const PREMIUM_DASHBOARD_URL = 'https://meet-me-backend-sg5c.onrender.com/admin-portal/#';
 
 const NAV_GROUPS: NavGroup[] = [
   {
@@ -160,6 +163,17 @@ export default function Layout() {
               </div>
             </div>
           ))}
+
+          <a
+            href={PREMIUM_DASHBOARD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="TOGETHE TECH - Dashboard Premium"
+            className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition hover:opacity-90"
+          >
+            <ExternalLinkIcon className={icon} />
+            <span className={hideWhenCollapsed}>Dashboard Premium</span>
+          </a>
         </nav>
 
         <div className="space-y-3 border-t border-white/10 p-3">
@@ -236,6 +250,15 @@ export default function Layout() {
           <p className="hidden text-sm text-muted sm:block">Plateforme ARTISANTS — espace administrateur</p>
 
           <div className="ml-auto flex items-center gap-3">
+            <a
+              href={PREMIUM_DASHBOARD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden items-center gap-2 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-violet-500/30 transition hover:opacity-90 md:inline-flex"
+            >
+              <ExternalLinkIcon className="h-4 w-4" />
+              Dashboard Premium
+            </a>
             <span
               className={[
                 'hidden items-center gap-2 rounded-full px-3 py-1 text-xs font-medium sm:inline-flex',
