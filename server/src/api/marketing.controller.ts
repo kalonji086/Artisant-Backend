@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { sendEmail } from '../lib/email';
+import { getBranding } from '../lib/branding';
 import {
   claimAndRun,
   decodeUnsubscribeEmail,
@@ -263,7 +264,7 @@ export const sendTestEmail = async (req: Request, res: Response) => {
     await sendEmail({
       to,
       subject: `[TEST] ${subject.trim()}`,
-      htmlContent: renderEmail(html, sample, baseUrl(req)),
+      htmlContent: renderEmail(html, sample, baseUrl(req), await getBranding()),
     });
     res.json({ success: true });
   } catch (err) {

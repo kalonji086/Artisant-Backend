@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { supabase } from './supabase';
 import { sendEmail } from './email';
 import { logger } from './logger';
+import { buildEmailFooter, escapeHtml, getBranding, type Branding } from './branding';
 
 export interface Segment {
   audience?: 'all' | 'client' | 'artisan';
@@ -52,8 +53,6 @@ const unsubscribeUrl = (baseUrl: string, email: string) =>
 export const decodeUnsubscribeEmail = (value: string): string =>
   Buffer.from(value, 'base64url').toString('utf8').toLowerCase();
 
-const escapeHtml = (v: string) =>
-  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** Retire les scripts, iframes et gestionnaires d'événements du contenu rédigé. */
 export const sanitizeHtml = (html: string): string =>
@@ -72,28 +71,32 @@ const applyVariables = (text: string, r: Recipient, escape = true): string => {
     .replace(/\{\{\s*email\s*\}\}/gi, v(r.email));
 };
 
-const wrapEmail = (bodyHtml: string, logoUrl: string, unsubUrl: string): string => `<!DOCTYPE html>
+const wrapEmail = (bodyHtml: string, logoUrl: string, footerHtml: string, name: string): string => `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#f0f0f3;font-family:Arial,Helvetica,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0f3;padding:24px 0;">
     <tr><td align="center">
       <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
         <tr><td style="background:#208aef;padding:24px;text-align:center;">
-          <img src="${logoUrl}" alt="ARTISANTS" width="64" height="64" style="border-radius:14px;vertical-align:middle;">
-          <span style="display:inline-block;vertical-align:middle;margin-left:12px;color:#fff;font-size:22px;font-weight:700;letter-spacing:1px;">ARTISANTS</span>
+          <img src="${logoUrl}" alt="${escapeHtml(name)}" width="64" height="64" style="border-radius:14px;vertical-align:middle;">
+          <span style="display:inline-block;vertical-align:middle;margin-left:12px;color:#fff;font-size:22px;font-weight:700;letter-spacing:1px;">${escapeHtml(name)}</span>
         </td></tr>
         <tr><td style="padding:32px 36px;color:#1f2937;font-size:15px;line-height:1.6;">${bodyHtml}</td></tr>
-        <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 36px;text-align:center;font-size:12px;color:#6b7280;">
-          ARTISANTS — Plateforme de mise en relation artisans &amp; clients<br>
-          <a href="${unsubUrl}" style="color:#6b7280;">Se désinscrire</a>
+        <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:24px 36px;text-align:center;">
+          ${footerHtml}
         </td></tr>
       </table>
     </td></tr>
   </table>
 </body></html>`;
 
-export const renderEmail = (html: string, r: Recipient, baseUrl: string): string =>
-  wrapEmail(applyVariables(sanitizeHtml(html), r), `${baseUrl}/logo.png`, unsubscribeUrl(baseUrl, r.email));
+export const renderEmail = (html: string, r: Recipient, baseUrl: string, branding: Branding): string =>
+  wrapEmail(
+    applyVariables(sanitizeHtml(html), r),
+    `${baseUrl}/logo.png`,
+    buildEmailFooter(branding, baseUrl, unsubscribeUrl(baseUrl, r.email)),
+    branding.platformName
+  );
 
 const listAllUsers = async (): Promise<Map<string, string>> => {
   const emails = new Map<string, string>();
@@ -161,6 +164,7 @@ export const runCampaign = async (campaign: CampaignRow, baseUrl: string): Promi
   try {
     const recipients = await resolveAudience(campaign.segment ?? {});
     total = recipients.length;
+    const branding = await getBranding();
 
     const queue = [...recipients];
     const worker = async () => {
@@ -169,7 +173,7 @@ export const runCampaign = async (campaign: CampaignRow, baseUrl: string): Promi
           await sendEmail({
             to: r.email,
             subject: applyVariables(campaign.subject, r, false),
-            htmlContent: renderEmail(campaign.html_content ?? '', r, baseUrl),
+            htmlContent: renderEmail(campaign.html_content ?? '', r, baseUrl, branding),
           });
           sent++;
         } catch (err) {

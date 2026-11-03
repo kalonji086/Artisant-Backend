@@ -67,7 +67,8 @@ export const generateEmailTemplate = (
   content: string,
   ctaText?: string,
   ctaUrl?: string,
-  logoUrl?: string
+  logoUrl?: string,
+  footerHtml?: string
 ): string => {
   // Logo par défaut si pas fourni
   const logo = logoUrl || 'https://via.placeholder.com/80/3b82f6/ffffff?text=A';
@@ -122,20 +123,11 @@ export const generateEmailTemplate = (
       </div>
 
       <div class="footer">
-        <p class="footer-text">
-          <strong>ARTISANTS</strong> — Plateforme de mise en relation artisans & clients
-        </p>
-        <p class="footer-text">
-          Connecter les talents, créer des opportunités
-        </p>
-        <div class="social-links">
-          <a href="#">Support</a>
-          <a href="#">Politique</a>
-          <a href="#">Paramètres</a>
-        </div>
-        <p class="footer-text" style="margin-top: 20px; font-size: 12px; color: #9ca3af;">
-          © 2026 ARTISANTS. Tous droits réservés.
-        </p>
+        ${
+          footerHtml ??
+          `<p class="footer-text"><strong>ARTISANTS</strong> — Plateforme de mise en relation artisans & clients</p>
+        <p class="footer-text" style="margin-top: 20px; font-size: 12px; color: #9ca3af;">© 2026 ARTISANTS. Tous droits réservés.</p>`
+        }
       </div>
     </div>
   </div>

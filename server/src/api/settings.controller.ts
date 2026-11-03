@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { sendEmail, generateEmailTemplate } from '../lib/email';
+import { buildEmailFooter, getBranding, invalidateBranding, safeUrl } from '../lib/branding';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
@@ -46,6 +47,12 @@ export const getPlatformSettings = async (req: Request, res: Response) => {
       sender_name: 'ARTISANTS',
       sender_email: 'noreply@artisants.com',
       reply_to_email: '',
+      contact_email: 'Togethertechsupport@gmail.com',
+      facebook_url: '',
+      github_url: '',
+      x_url: '',
+      linkedin_url: '',
+      instagram_url: '',
       updated_at: new Date().toISOString(),
       updated_by: null,
     });
@@ -59,7 +66,19 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
     return res.status(401).json({ error: 'Utilisateur non authentifié' });
   }
 
-  const { platform_name, support_email, sender_name, sender_email, reply_to_email } = req.body;
+  const { platform_name, support_email, sender_name, sender_email, reply_to_email, contact_email } = req.body;
+
+  const urlFields = ['facebook_url', 'github_url', 'x_url', 'linkedin_url', 'instagram_url'] as const;
+  const urlUpdates: Record<string, string> = {};
+  for (const field of urlFields) {
+    const raw = req.body[field];
+    if (typeof raw !== 'string') continue;
+    const value = raw.trim();
+    if (value && !safeUrl(value)) {
+      return res.status(400).json({ error: `Lien invalide (${field.replace('_url', '')}) : il doit commencer par https://` });
+    }
+    urlUpdates[field] = value;
+  }
 
   try {
     // upsert : crée la ligne unique si elle n'existe pas encore
@@ -72,7 +91,9 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
           ...(support_email ? { support_email } : {}),
           ...(sender_name ? { sender_name } : {}),
           ...(sender_email ? { sender_email } : {}),
+          ...(contact_email ? { contact_email } : {}),
           ...(typeof reply_to_email === 'string' ? { reply_to_email } : {}),
+          ...urlUpdates,
           updated_at: new Date().toISOString(),
           updated_by: admin.id,
         },
@@ -82,6 +103,7 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
       .single();
 
     if (error) throw error;
+    invalidateBranding();
 
     logger.info('Paramètres de plateforme mis à jour', { admin_id: admin.id });
     res.json(data);
@@ -188,7 +210,15 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
     // Générer le template d'email avec le logo
     const publicAppUrl = (process.env.APP_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
     const logoUrl = `${publicAppUrl}/logo.png`;
-    const htmlContent = generateEmailTemplate(subject, body, undefined, undefined, logoUrl);
+    const branding = await getBranding();
+    const htmlContent = generateEmailTemplate(
+      subject,
+      body,
+      undefined,
+      undefined,
+      logoUrl,
+      buildEmailFooter(branding, publicAppUrl)
+    );
 
     // Envoyer l'email via Brevo
     console.log('[EMAIL] Sending to', recipients.length, 'recipients...');

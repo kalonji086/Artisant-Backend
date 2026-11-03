@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { MailIcon, SettingsIcon, ToolIcon } from '../components/icons';
+import { DocumentIcon, ExternalLinkIcon, MailIcon, MegaphoneIcon, SettingsIcon, ToolIcon } from '../components/icons';
 import { Card, ErrorState, LoadingBlock, PageHeader, Spinner } from '../components/ui';
 import { api, apiErrorMessage } from '../lib/api';
 
@@ -10,10 +10,35 @@ interface PlatformSettings {
   sender_name: string;
   sender_email: string;
   reply_to_email: string;
+  contact_email?: string;
+  facebook_url?: string;
+  github_url?: string;
+  x_url?: string;
+  linkedin_url?: string;
+  instagram_url?: string;
   updated_at: string;
 }
 
-type EditableKey = 'platform_name' | 'support_email' | 'sender_name' | 'sender_email' | 'reply_to_email';
+type EditableKey =
+  | 'platform_name'
+  | 'support_email'
+  | 'sender_name'
+  | 'sender_email'
+  | 'reply_to_email'
+  | 'contact_email'
+  | 'facebook_url'
+  | 'github_url'
+  | 'x_url'
+  | 'linkedin_url'
+  | 'instagram_url';
+
+const SOCIAL_FIELDS: { key: EditableKey; label: string; placeholder: string }[] = [
+  { key: 'facebook_url', label: 'Facebook', placeholder: 'https://facebook.com/votrepage' },
+  { key: 'github_url', label: 'GitHub', placeholder: 'https://github.com/votrecompte' },
+  { key: 'x_url', label: 'X (Twitter)', placeholder: 'https://x.com/votrecompte' },
+  { key: 'linkedin_url', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/votrepage' },
+  { key: 'instagram_url', label: 'Instagram', placeholder: 'https://instagram.com/votrecompte' },
+];
 
 const INPUT =
   'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-ink shadow-sm placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30';
@@ -65,6 +90,12 @@ export default function Settings() {
         sender_name: settings.sender_name,
         sender_email: settings.sender_email,
         reply_to_email: settings.reply_to_email,
+        contact_email: settings.contact_email,
+        facebook_url: settings.facebook_url ?? '',
+        github_url: settings.github_url ?? '',
+        x_url: settings.x_url ?? '',
+        linkedin_url: settings.linkedin_url ?? '',
+        instagram_url: settings.instagram_url ?? '',
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -143,6 +174,37 @@ export default function Settings() {
                   <input type="email" value={settings.reply_to_email} onChange={(e) => set('reply_to_email', e.target.value)} className={INPUT} />
                 </Field>
               </div>
+            </div>
+          </Card>
+
+          <Card title="Réseaux sociaux" subtitle="Affichés dans le pied de page des emails et des pages légales" icon={<MegaphoneIcon className="h-5 w-5" />}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {SOCIAL_FIELDS.map((f) => (
+                <Field key={f.key} label={f.label}>
+                  <input
+                    type="url"
+                    value={settings[f.key] ?? ''}
+                    onChange={(e) => set(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                    className={INPUT}
+                  />
+                </Field>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted">Laissez un champ vide pour masquer le réseau. Les liens doivent commencer par https://</p>
+          </Card>
+
+          <Card title="Pages légales" subtitle="Contact et liens publics" icon={<DocumentIcon className="h-5 w-5" />}>
+            <Field label="Email de contact (pages légales et emails)">
+              <input type="email" value={settings.contact_email ?? ''} onChange={(e) => set('contact_email', e.target.value)} className={INPUT} />
+            </Field>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm">
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-medium text-brand hover:underline">
+                <ExternalLinkIcon className="h-4 w-4" /> Politique de confidentialité
+              </a>
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-medium text-brand hover:underline">
+                <ExternalLinkIcon className="h-4 w-4" /> Conditions d'utilisation
+              </a>
             </div>
           </Card>
 
