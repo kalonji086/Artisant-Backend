@@ -28,3 +28,23 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Éditeur d'emails façon Word : rétablit les styles de titres/listes neutralisés par Tailwind */
+.doc-editor {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #1f2937;
+  word-break: break-word;
+}
+.doc-editor h1 { font-size: 2em; font-weight: 700; margin: 0.6em 0 0.4em; }
+.doc-editor h2 { font-size: 1.5em; font-weight: 700; margin: 0.6em 0 0.4em; }
+.doc-editor h3 { font-size: 1.17em; font-weight: 700; margin: 0.6em 0 0.4em; }
+.doc-editor p { margin: 0 0 0.8em; }
+.doc-editor ul { list-style: disc; padding-left: 1.6em; margin: 0 0 0.8em; }
+.doc-editor ol { list-style: decimal; padding-left: 1.6em; margin: 0 0 0.8em; }
+.doc-editor blockquote { border-left: 4px solid #cbd5e1; margin: 0.8em 0; padding-left: 1em; color: #475569; }
+.doc-editor a { color: #208aef; text-decoration: underline; }
+.doc-editor img { max-width: 100%; height: auto; }
+.doc-editor hr { border: 0; border-top: 1px solid #cbd5e1; margin: 1em 0; }
+.doc-editor table { border-collapse: collapse; }

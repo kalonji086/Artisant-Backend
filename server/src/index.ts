@@ -11,6 +11,8 @@ import artisanRoutes from './api/artisan.routes';
 import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
+import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
+import { startCampaignScheduler } from './lib/marketing';
 import { errorHandler } from './middleware/error-handler';
 import { correlationIdMiddleware } from './middleware/correlation-id';
 import { logger } from './lib/logger';
@@ -131,6 +133,8 @@ app.use(generalLimiter);
 // ============================================
 app.use(`${API_VERSION}/artisans`, authLimiter, artisanRoutes);
 app.use(`${API_VERSION}/quotes`, quoteLimiter, quoteRoutes);
+app.use(`${API_VERSION}/admin/marketing`, marketingRouter);
+app.use(`${API_VERSION}/unsubscribe`, unsubscribeRouter);
 app.use(`${API_VERSION}/admin`, adminRoutes);
 app.use(`${API_VERSION}/webhooks`, webhookRoutes);
 
@@ -168,6 +172,7 @@ app.use(errorHandler);
 // ============================================
 const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`Serveur démarré sur http://localhost:${PORT}${API_VERSION}`);
+  startCampaignScheduler();
 });
 
 const gracefulShutdown = (signal: string) => {

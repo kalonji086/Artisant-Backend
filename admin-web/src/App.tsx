@@ -6,6 +6,7 @@ import { useAdminAuth } from './context/AdminAuthContext';
 import Dashboard from './pages/Dashboard';
 import EmployerRequests from './pages/EmployerRequests';
 import Emails from './pages/Emails';
+import Campaigns from './pages/Campaigns';
 import Login from './pages/Login';
 import LiveMap from './pages/LiveMap';
 import Quotes from './pages/Quotes';
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="demandes-employeur" element={<EmployerRequests />} />
         <Route path="parametres" element={<Settings />} />
         <Route path="emails" element={<Emails />} />
+        <Route path="campagnes" element={<Campaigns />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

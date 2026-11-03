@@ -150,3 +150,55 @@ export const MapIcon = (props: IconProps) => (
     <path d="M15 6v14" />
   </svg>
 );
+
+export const MegaphoneIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <path d="m3 11 14-6v14L3 13v-2Z" />
+    <path d="M7 13.5V18a2 2 0 0 0 4 0v-3.5" />
+    <path d="M21 9v6" />
+  </svg>
+);
+
+export const TrashIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="m6 6 1 14h10l1-14" />
+    <path d="M10 10v6M14 10v6" />
+  </svg>
+);
+
+export const SendIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <path d="m22 2-11 11" />
+    <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+  </svg>
+);
+
+export const ClockIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);
+
+export const ChevronsLeftIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <path d="m11 17-5-5 5-5" />
+    <path d="m18 17-5-5 5-5" />
+  </svg>
+);
+
+export const ChevronsRightIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <path d="m13 17 5-5-5-5" />
+    <path d="m6 17 5-5-5-5" />
+  </svg>
+);
+
+export const CopyIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+  </svg>
+);
