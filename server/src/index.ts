@@ -71,6 +71,8 @@ app.use(
         imgSrc: ["'self'", 'data:', 'https://tile.openstreetmap.org'],
       },
     },
+    // OpenStreetMap refuse (403) les tuiles sans Referer : on n'envoie que l'origine.
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   })
 );
 app.use(morgan('combined', { stream: { write: (msg) => logger.http(msg.trim()) } }));
