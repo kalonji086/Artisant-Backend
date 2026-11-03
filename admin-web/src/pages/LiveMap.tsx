@@ -77,15 +77,10 @@ export default function LiveMap() {
 
   const load = useCallback(async () => {
     const [locRes, quoteRes] = await Promise.all([
-      supabase
-        .from('user_locations')
-        .select('user_id, latitude, longitude, updated_at, profile:profiles(full_name, role, phone, profession, is_available)')
-        .limit(1000),
+      supabase.from('user_locations').select('user_id, latitude, longitude, updated_at').limit(1000),
       supabase
         .from('quotes')
-        .select(
-          'id, client_id, description, status, latitude, longitude, created_at, client:profiles!quotes_client_id_fkey(full_name), artisan:profiles!quotes_artisan_id_fkey(full_name)'
-        )
+        .select('id, client_id, artisan_id, description, status, latitude, longitude, created_at')
         .in('status', ['unassigned', 'assigned', 'pending', 'accepted'])
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
@@ -93,8 +88,39 @@ export default function LiveMap() {
     ]);
     if (locRes.error) throw new Error(locRes.error.message);
     if (quoteRes.error) throw new Error(quoteRes.error.message);
-    setPeople((locRes.data ?? []) as unknown as PersonPoint[]);
-    setQuotes((quoteRes.data ?? []) as unknown as QuotePoint[]);
+
+    const locs = locRes.data ?? [];
+    const rawQuotes = quoteRes.data ?? [];
+
+    // Requête séparée plutôt qu'un embed PostgREST : ne dépend pas du nom des clés étrangères.
+    const ids = Array.from(
+      new Set([
+        ...locs.map((l) => l.user_id as string),
+        ...rawQuotes.flatMap((q) => [q.client_id as string, q.artisan_id as string | null]),
+      ].filter((id): id is string => Boolean(id)))
+    );
+    const profRes = ids.length
+      ? await supabase
+          .from('profiles')
+          .select('id, full_name, role, phone, profession, is_available')
+          .in('id', ids)
+      : { data: [], error: null };
+    if (profRes.error) throw new Error(profRes.error.message);
+    const byId = new Map((profRes.data ?? []).map((p) => [p.id as string, p]));
+
+    setPeople(
+      locs.map((l) => ({
+        ...(l as Omit<PersonPoint, 'profile'>),
+        profile: (byId.get(l.user_id as string) as PersonPoint['profile']) ?? null,
+      }))
+    );
+    setQuotes(
+      rawQuotes.map((q) => ({
+        ...(q as Omit<QuotePoint, 'client' | 'artisan'>),
+        client: byId.get(q.client_id as string) ?? null,
+        artisan: q.artisan_id ? (byId.get(q.artisan_id as string) ?? null) : null,
+      })) as QuotePoint[]
+    );
   }, []);
 
   useEffect(() => {
