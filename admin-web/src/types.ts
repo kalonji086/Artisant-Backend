@@ -11,6 +11,17 @@ export interface Profile {
   is_available: boolean | null;
   rating: number | null;
   address: string | null;
+  city?: string | null;
+  profession?: string | null;
+  description?: string | null;
+  email?: string | null;
+  birth_date?: string | null;
+  gender?: string | null;
+  country?: string | null;
+  years_experience?: number | null;
+  service_radius_km?: number | null;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
   created_at: string;
 }
 

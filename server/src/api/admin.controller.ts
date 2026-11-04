@@ -253,13 +253,22 @@ export const getUsers = async (req: Request, res: Response) => {
   try {
     let query = supabase
       .from('profiles')
-      .select('id, full_name, phone, role, avatar_url, is_available, rating, address, created_at', {
+      .select('id, full_name, phone, role, avatar_url, is_available, rating, address, city, profession, description, created_at', {
         count: 'exact',
       });
 
     query = query.in('role', PROFILE_ROLES);
     if (role) query = query.eq('role', role);
-    if (search) query = query.or(`full_name.ilike.%${search}%,address.ilike.%${search}%`);
+    if (search) {
+      const filters = [`full_name.ilike.%${search}%`, `address.ilike.%${search}%`, `city.ilike.%${search}%`, `phone.ilike.%${search}%`];
+      const { data: byEmail } = await supabase
+        .from('profile_details')
+        .select('user_id')
+        .ilike('email', `%${search}%`)
+        .limit(200);
+      if (byEmail?.length) filters.push(`id.in.(${byEmail.map((r) => r.user_id).join(',')})`);
+      query = query.or(filters.join(','));
+    }
 
     const { data, count, error } = await query
       .order('created_at', { ascending: false })
@@ -267,8 +276,28 @@ export const getUsers = async (req: Request, res: Response) => {
 
     if (error) throw error;
 
+    const rows = data ?? [];
+    // Table absente (migration 017 non exécutée) : la liste reste affichée sans les détails.
+    const { data: details } = rows.length
+      ? await supabase.from('profile_details').select('*').in('user_id', rows.map((r) => r.id))
+      : { data: [] };
+    const byId = new Map((details ?? []).map((d) => [d.user_id as string, d]));
+
     res.json({
-      data: data ?? [],
+      data: rows.map((r) => {
+        const d = byId.get(r.id);
+        return {
+          ...r,
+          email: d?.email ?? null,
+          birth_date: d?.birth_date ?? null,
+          gender: d?.gender ?? null,
+          country: d?.country ?? null,
+          years_experience: d?.years_experience ?? null,
+          service_radius_km: d?.service_radius_km ?? null,
+          terms_accepted_at: d?.terms_accepted_at ?? null,
+          terms_version: d?.terms_version ?? null,
+        };
+      }),
       pagination: { page, pageSize, total: count ?? 0, totalPages: Math.max(1, Math.ceil((count ?? 0) / pageSize)) },
     });
   } catch (err: unknown) {

@@ -5,8 +5,9 @@ import { SearchIcon, ToolIcon, TrendIcon, UsersIcon } from '../components/icons'
 import { EmptyState, ErrorState, FilterTabs, LoadingBlock, PageHeader, StatStrip } from '../components/ui';
 import { AdminService, apiErrorMessage } from '../lib/api';
 import { useStats } from '../lib/useStats';
+import { supabase } from '../lib/supabase';
 import type { Paginated, Profile } from '../types';
-import { formatDate, formatNumber, initials } from '../utils/format';
+import { formatDate, formatDateTime, formatNumber, initials } from '../utils/format';
 
 const ROLE_OPTIONS = [
   { value: '', label: 'Tous' },
@@ -26,6 +27,7 @@ export default function Users() {
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<Paginated<Profile>>(EMPTY_PAGE);
   const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const stats = useStats();
 
@@ -38,8 +40,8 @@ export default function Users() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await AdminService.getUsers({
@@ -59,6 +61,26 @@ export default function Users() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Suivi en direct : toute inscription ou modification de profil rafraîchit la liste sans recharger la page.
+  useEffect(() => {
+    let timer: number | undefined;
+    const refresh = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void load(true), 500);
+    };
+    const channel = supabase
+      .channel('users-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_details' }, refresh)
+      .subscribe();
+    return () => {
+      window.clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [load]);
+
+  const selected = result.data.find((p) => p.id === selectedId) ?? null;
 
   return (
     <div>
@@ -115,7 +137,9 @@ export default function Users() {
               <thead className="bg-gradient-to-r from-brand-light/70 to-gray-50 text-left text-xs font-semibold tracking-wide text-muted uppercase">
                 <tr>
                   <th className="px-4 py-3">Utilisateur</th>
+                  <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Rôle</th>
+                  <th className="px-4 py-3">Métier</th>
                   <th className="px-4 py-3">Disponibilité</th>
                   <th className="px-4 py-3">Note</th>
                   <th className="px-4 py-3">Téléphone</th>
@@ -124,7 +148,11 @@ export default function Users() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {result.data.map((profile) => (
-                  <tr key={profile.id} className="transition hover:bg-brand-light/40">
+                  <tr
+                    key={profile.id}
+                    onClick={() => setSelectedId(profile.id)}
+                    className="cursor-pointer transition hover:bg-brand-light/40"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-sky-400 text-xs font-bold text-white shadow-sm">
@@ -138,9 +166,11 @@ export default function Users() {
                         </div>
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-muted">{profile.email ?? '—'}</td>
                     <td className="px-4 py-3">
                       <StatusBadge value={profile.role ?? 'client'} />
                     </td>
+                    <td className="px-4 py-3 text-muted">{profile.role === 'artisan' ? (profile.profession ?? '—') : '—'}</td>
                     <td className="px-4 py-3">
                       {profile.role === 'artisan' ? (
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink">
@@ -167,6 +197,68 @@ export default function Users() {
       {!loading && !error ? (
         <Pagination pagination={result.pagination} onPage={setPage} />
       ) : null}
+
+      {selected ? <UserDetails profile={selected} onClose={() => setSelectedId(null)} /> : null}
+    </div>
+  );
+}
+
+const GENDER_LABELS: Record<string, string> = { homme: 'Homme', femme: 'Femme', autre: 'Autre' };
+
+function UserDetails({ profile, onClose }: { profile: Profile; onClose: () => void }) {
+  const isArtisan = profile.role === 'artisan';
+  const rows: [string, string][] = [
+    ['Email', profile.email ?? '—'],
+    ['Téléphone', profile.phone ?? '—'],
+    ...(isArtisan
+      ? ([
+          ['Date de naissance', profile.birth_date ? formatDate(profile.birth_date) : '—'],
+          ['Genre', profile.gender ? (GENDER_LABELS[profile.gender] ?? profile.gender) : '—'],
+          ['Adresse', profile.address ?? '—'],
+          ['Ville', profile.city ?? '—'],
+          ['Pays', profile.country ?? '—'],
+          ['Métier', profile.profession ?? '—'],
+          ['Années d\'expérience', profile.years_experience != null ? String(profile.years_experience) : '—'],
+          ['Rayon d\'intervention', profile.service_radius_km != null ? `${profile.service_radius_km} km` : '—'],
+          ['Description', profile.description ?? '—'],
+          ['Disponibilité', profile.is_available ? 'Disponible' : 'Indisponible'],
+        ] as [string, string][])
+      : ([['Ville', profile.city ?? '—']] as [string, string][])),
+    ['Conditions acceptées', profile.terms_accepted_at ? `${formatDateTime(profile.terms_accepted_at)} (v${profile.terms_version ?? '?'})` : 'Non enregistré'],
+    ['Inscrit le', formatDateTime(profile.created_at)],
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
+      <aside
+        role="dialog"
+        aria-label="Détails de l'utilisateur"
+        onClick={(e) => e.stopPropagation()}
+        className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"
+      >
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-brand to-sky-400 font-bold text-white">
+              {initials(profile.full_name)}
+            </span>
+            <div>
+              <h2 className="text-lg font-bold text-ink">{profile.full_name ?? 'Sans nom'}</h2>
+              <StatusBadge value={profile.role ?? 'client'} />
+            </div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
+            ✕
+          </button>
+        </div>
+        <dl className="divide-y divide-gray-100 text-sm">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex justify-between gap-4 py-3">
+              <dt className="text-muted">{label}</dt>
+              <dd className="text-right font-medium break-words text-ink">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </aside>
     </div>
   );
 }
