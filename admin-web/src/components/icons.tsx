@@ -175,6 +175,12 @@ export const SendIcon = (props: IconProps) => (
   </svg>
 );
 
+export const ChatIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+  </svg>
+);
+
 export const ClockIcon = (props: IconProps) => (
   <svg {...base} {...props}>
     <circle cx="12" cy="12" r="9" />

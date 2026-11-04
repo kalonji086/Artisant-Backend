@@ -33,6 +33,11 @@ export interface Quote {
   longitude?: number | null;
   service_id: string | null;
   description: string | null;
+  category?: string | null;
+  title?: string | null;
+  urgency?: 'flexible' | 'normal' | 'urgent' | null;
+  address?: string | null;
+  budget?: number | string | null;
   status: QuoteStatus;
   price: number | string | null;
   created_at: string;

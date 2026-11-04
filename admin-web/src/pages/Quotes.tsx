@@ -131,8 +131,15 @@ export default function Quotes() {
                     </td>
                     <td className="px-4 py-3 font-medium text-ink">{quote.client_name}</td>
                     <td className="px-4 py-3 text-ink">{quote.artisan_name}</td>
-                    <td className="max-w-xs truncate px-4 py-3 text-muted">
-                      {quote.description || '—'}
+                    <td className="max-w-xs px-4 py-3 text-muted">
+                      {(quote.category || quote.title) && (
+                        <div className="truncate text-xs font-semibold text-ink">
+                          {[quote.category, quote.title].filter(Boolean).join(' · ')}
+                          {quote.urgency === 'urgent' ? ' · URGENT' : ''}
+                        </div>
+                      )}
+                      <div className="truncate">{quote.description || '—'}</div>
+                      {quote.address && <div className="truncate text-xs">📍 {quote.address}</div>}
                     </td>
                     <td className="px-4 py-3 font-medium whitespace-nowrap text-ink">
                       {formatPrice(quote.price)}

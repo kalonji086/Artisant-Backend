@@ -15,6 +15,13 @@ import {
 } from './settings.controller';
 import { authenticate, requireAdmin } from '../middleware/auth';
 import { getLegalDocument, saveLegalDocument, resetLegalDocument } from './legal.controller';
+import {
+  listConversations,
+  getConversationMessages,
+  sendAdminMessage,
+  markConversationRead,
+  startSupportWithUser,
+} from './chat.controller';
 
 const router = Router();
 
@@ -224,6 +231,12 @@ router.patch('/settings', updatePlatformSettings);
 router.get('/legal/:slug', getLegalDocument);
 router.put('/legal/:slug', saveLegalDocument);
 router.delete('/legal/:slug', resetLegalDocument);
+
+router.get('/chat/conversations', listConversations);
+router.post('/chat/start', startSupportWithUser);
+router.get('/chat/conversations/:id/messages', getConversationMessages);
+router.post('/chat/conversations/:id/messages', sendAdminMessage);
+router.post('/chat/conversations/:id/read', markConversationRead);
 
 /**
  * @swagger

@@ -5,6 +5,7 @@ import { useAdminPresence, useLiveCounts, useSessionDuration } from '../lib/pres
 import { initials } from '../utils/format';
 import {
   BriefcaseIcon,
+  ChatIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
   CloseIcon,
@@ -49,6 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/utilisateurs', label: 'Utilisateurs', icon: <UsersIcon className={icon} /> },
       { to: '/devis', label: 'Devis', icon: <DocumentIcon className={icon} /> },
+      { to: '/messages', label: 'Messages', icon: <ChatIcon className={icon} /> },
       { to: '/demandes-employeur', label: 'Demandes employeur', icon: <BriefcaseIcon className={icon} /> },
     ],
   },

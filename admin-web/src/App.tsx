@@ -10,6 +10,7 @@ import Campaigns from './pages/Campaigns';
 import Login from './pages/Login';
 import LiveMap from './pages/LiveMap';
 import Quotes from './pages/Quotes';
+import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
 
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="utilisateurs" element={<Users />} />
         <Route path="carte" element={<LiveMap />} />
         <Route path="devis" element={<Quotes />} />
+        <Route path="messages" element={<Messages />} />
         <Route path="demandes-employeur" element={<EmployerRequests />} />
         <Route path="parametres" element={<Settings />} />
         <Route path="emails" element={<Emails />} />
