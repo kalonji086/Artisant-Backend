@@ -12,6 +12,7 @@ import LiveMap from './pages/LiveMap';
 import Quotes from './pages/Quotes';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
+import Support from './pages/Support';
 import Users from './pages/Users';
 
 function FullscreenLoader() {
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="devis" element={<Quotes />} />
         <Route path="messages" element={<Messages />} />
         <Route path="demandes-employeur" element={<EmployerRequests />} />
+        <Route path="support" element={<Support />} />
         <Route path="parametres" element={<Settings />} />
         <Route path="emails" element={<Emails />} />
         <Route path="campagnes" element={<Campaigns />} />
