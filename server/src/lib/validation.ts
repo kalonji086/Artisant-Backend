@@ -14,7 +14,7 @@ export const createQuoteSchema = z.object({
 // Schéma de validation pour la mise à jour de statut de devis
 export const updateQuoteStatusSchema = z.object({
   id: z.string().uuid('ID de devis invalide'),
-  status: z.enum(['pending', 'accepted', 'rejected', 'completed']),
+  status: z.enum(['unassigned', 'assigned', 'pending', 'accepted', 'rejected', 'completed']),
   price: z.string().optional(),
 });
 

@@ -2,8 +2,72 @@ import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { sendPushNotification } from '../services/notification.service';
 import { createQuoteSchema, updateQuoteStatusSchema, ValidatedRequest } from '../lib/validation';
+import { buildQuoteRequestEmail, sendEmail } from '../lib/email';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
+
+const sendQuoteAssignmentEmails = async (quote: {
+  id: string;
+  title: string | null;
+  description: string | null;
+  client_id: string | null;
+  artisan_id: string | null;
+  status: string;
+}) => {
+  if (!quote.client_id || !quote.artisan_id) return;
+
+  try {
+    const [clientUser, artisanUser] = await Promise.all([
+      supabase.auth.admin.getUserById(quote.client_id),
+      supabase.auth.admin.getUserById(quote.artisan_id),
+    ]);
+
+    const clientEmail = clientUser.data.user?.email ?? null;
+    const artisanEmail = artisanUser.data.user?.email ?? null;
+    const baseUrl = (process.env.APP_URL || 'https://www.artisants.com').replace(/\/+$/, '');
+    const quoteUrl = `${baseUrl}/quotes?quote=${encodeURIComponent(quote.id)}`;
+    const dashboardUrl = `${baseUrl}/dashboard?quote=${encodeURIComponent(quote.id)}`;
+
+    const clientName = clientUser.data.user?.user_metadata?.full_name || 'Client';
+    const artisanName = artisanUser.data.user?.user_metadata?.full_name || 'Artisan';
+
+    if (clientEmail) {
+      const content = await buildQuoteRequestEmail({
+        recipientName: clientName,
+        quoteTitle: quote.title || 'Votre demande de devis',
+        quoteDescription: quote.description || 'Votre devis a été attribué à l’artisan le plus adapté.',
+        ctaText: 'Demander un devis',
+        ctaUrl: quoteUrl,
+        subject: 'Votre devis a été attribué',
+      });
+
+      await sendEmail({
+        to: clientEmail,
+        subject: 'Votre devis a été attribué',
+        htmlContent: content,
+      });
+    }
+
+    if (artisanEmail) {
+      const artisanHtml = await buildQuoteRequestEmail({
+        recipientName: artisanName,
+        quoteTitle: quote.title || 'Nouvelle demande',
+        quoteDescription: `Une demande de devis a été attribuée à ${artisanName}. Consultez les détails et répondez directement depuis votre dashboard.`,
+        ctaText: 'Voir la demande',
+        ctaUrl: dashboardUrl,
+        subject: `Nouvelle demande de devis : ${quote.title || 'Service'}`,
+      });
+
+      await sendEmail({
+        to: artisanEmail,
+        subject: `Nouvelle demande de devis : ${quote.title || 'Service'}`,
+        htmlContent: artisanHtml,
+      });
+    }
+  } catch (error) {
+    console.warn('[quotes] email notification failed:', error);
+  }
+};
 
 export const createQuoteRequest = async (req: Request, res: Response) => {
   const user = (req as AuthenticatedRequest).user;
@@ -97,6 +161,17 @@ export const updateQuoteStatus = async (req: Request, res: Response) => {
       .single();
 
     if (error) throw error;
+
+    if (status === 'assigned' || status === 'pending' || status === 'accepted') {
+      await sendQuoteAssignmentEmails({
+        id: data.id,
+        title: data.title ?? null,
+        description: data.description ?? null,
+        client_id: data.client_id,
+        artisan_id: data.artisan_id,
+        status: data.status,
+      });
+    }
 
     // Notifier le client du changement de statut
     const { data: client } = await supabase

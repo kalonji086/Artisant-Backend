@@ -1,4 +1,5 @@
 import { logger } from './logger';
+import { buildEmailFooter, getBranding } from './branding';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'noreply@artisants.com';
@@ -134,4 +135,38 @@ export const generateEmailTemplate = (
 </body>
 </html>
   `.trim();
+};
+
+export const buildQuoteRequestEmail = async ({
+  recipientName,
+  quoteTitle,
+  quoteDescription,
+  ctaText,
+  ctaUrl,
+  subject,
+}: {
+  recipientName: string;
+  quoteTitle?: string;
+  quoteDescription?: string;
+  ctaText: string;
+  ctaUrl: string;
+  subject: string;
+}) => {
+  const branding = await getBranding();
+  const baseUrl = (process.env.APP_URL || 'https://www.artisants.com').replace(/\/+$/, '');
+  const content = `
+    <p>Bonjour ${recipientName},</p>
+    <p>Nous avons préparé une demande de devis pour <strong>${quoteTitle || 'votre besoin'}</strong>.</p>
+    ${quoteDescription ? `<p>${quoteDescription}</p>` : '<p>Vous pouvez consulter les détails et continuer le parcours depuis votre espace.</p>'}
+    <p>Grâce à ce message, vous pouvez agir directement depuis votre espace ARTISANTS.</p>
+  `;
+
+  return generateEmailTemplate(
+    subject,
+    content,
+    ctaText,
+    ctaUrl,
+    `${baseUrl}/logo.png`,
+    buildEmailFooter(branding, baseUrl)
+  );
 };

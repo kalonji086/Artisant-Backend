@@ -60,7 +60,7 @@ const options = {
             artisan_id: { type: 'string', format: 'uuid' },
             service_id: { type: 'string', format: 'uuid' },
             description: { type: 'string' },
-            status: { type: 'string', enum: ['pending', 'accepted', 'rejected', 'completed'] },
+            status: { type: 'string', enum: ['unassigned', 'assigned', 'pending', 'accepted', 'rejected', 'completed'] },
             price: { type: 'number' },
             created_at: { type: 'string', format: 'date-time' },
             updated_at: { type: 'string', format: 'date-time' },
