@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { logActivity } from '../lib/activity';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
@@ -93,6 +94,7 @@ export const sendAdminMessage = async (req: AuthenticatedRequest, res: Response)
       .from('chat_conversations')
       .update({ last_message: content.slice(0, 200), last_message_at: msg.created_at })
       .eq('id', id);
+    await logActivity({ actorId: req.user.id, action: 'chat.admin_message_sent', entityType: 'chat_conversation', entityId: id });
     return res.status(201).json(msg);
   } catch (err) {
     return fail(res, 'send', err);

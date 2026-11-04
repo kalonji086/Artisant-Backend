@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { logActivity } from '../lib/activity';
 import { updateEmployerRequestSchema } from '../lib/validation';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
@@ -443,6 +444,14 @@ export const updateEmployerRequestStatus = async (req: Request, res: Response) =
       .single();
 
     if (error) throw error;
+
+    await logActivity({
+      actorId: admin?.id,
+      action: `employer_request.${status}`,
+      entityType: 'employer_request',
+      entityId: id,
+      metadata: { company_name: existing.company_name },
+    });
 
     // À l'approbation : créer (ou rafraîchir) le profil employeur actif
     if (status === 'approved' && existing.user_id) {

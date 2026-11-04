@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
+import { logActivity } from '../lib/activity';
 import { sendPushNotification } from '../services/notification.service';
 import { createQuoteSchema, updateQuoteStatusSchema, ValidatedRequest } from '../lib/validation';
 import { buildQuoteRequestEmail, sendEmail } from '../lib/email';
@@ -107,6 +108,7 @@ export const createQuoteRequest = async (req: Request, res: Response) => {
 
     if (error) throw error;
 
+    await logActivity({ actorId: user.id, action: 'quote.created', entityType: 'quote', entityId: quote.id });
     res.status(201).json(quote);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur inconnue lors de la création du devis';
@@ -161,6 +163,14 @@ export const updateQuoteStatus = async (req: Request, res: Response) => {
       .single();
 
     if (error) throw error;
+
+    await logActivity({
+      actorId: user.id,
+      action: 'quote.status_changed',
+      entityType: 'quote',
+      entityId: id,
+      metadata: { from: existingQuote.status, to: status },
+    });
 
     if (status === 'assigned' || status === 'pending' || status === 'accepted') {
       await sendQuoteAssignmentEmails({

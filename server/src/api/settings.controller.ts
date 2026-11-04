@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { logActivity } from '../lib/activity';
 import { sendEmail, generateEmailTemplate } from '../lib/email';
 import { buildEmailFooter, getBranding, invalidateBranding, safeUrl } from '../lib/branding';
 
@@ -104,6 +105,7 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
 
     if (error) throw error;
     invalidateBranding();
+    await logActivity({ actorId: admin.id, action: 'settings.updated', entityType: 'platform_settings' });
 
     logger.info('Paramètres de plateforme mis à jour', { admin_id: admin.id });
     res.json(data);
@@ -252,6 +254,14 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
     } else {
       console.log('[EMAIL] Campaign recorded:', campaign?.id);
     }
+
+    await logActivity({
+      actorId: admin.id,
+      action: 'campaign.sent',
+      entityType: 'email_campaign',
+      entityId: campaign?.id ?? null,
+      metadata: { audience: audience || recipientType, recipient_count: recipients.length },
+    });
 
     logger.info('Email campaign sent', {
       admin_id: admin.id,

@@ -9,6 +9,7 @@ import {
   ChevronsLeftIcon,
   ChevronsRightIcon,
   CloseIcon,
+  ClockIcon,
   DocumentIcon,
   ExternalLinkIcon,
   GridIcon,
@@ -64,7 +65,9 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: 'Système',
-    items: [{ to: '/parametres', label: 'Paramètres', icon: <SettingsIcon className={icon} /> }],
+    items: [
+      { to: '/logs', label: 'Logs', icon: <ClockIcon className={icon} /> },
+      { to: '/parametres', label: 'Paramètres', icon: <SettingsIcon className={icon} /> }],
   },
 ];
 

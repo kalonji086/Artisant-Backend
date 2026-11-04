@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { logActivity } from '../lib/activity';
 import { getBranding } from '../lib/branding';
 import { defaultLegalHtml, sanitizeLegalHtml, type CustomDoc, type LegalSlug } from '../lib/legal';
 type AuthenticatedRequest = Request & { user?: { id: string } };
@@ -57,6 +58,7 @@ export const saveLegalDocument = async (req: AuthenticatedRequest, res: Response
     return res.status(500).json({ error: error.message || 'Erreur lors de la sauvegarde' });
   }
   logger.info('Document légal mis à jour', { slug, admin_id: req.user?.id });
+  await logActivity({ actorId: req.user?.id, action: 'legal.saved', entityType: 'legal_document', entityId: slug });
   return res.json({ slug, customized: true, updated_at: data.updated_at });
 };
 
@@ -66,5 +68,6 @@ export const resetLegalDocument = async (req: AuthenticatedRequest, res: Respons
 
   const { error } = await supabase.from('legal_documents').delete().eq('slug', slug);
   if (error) return res.status(500).json({ error: error.message || 'Erreur lors de la réinitialisation' });
+  await logActivity({ actorId: req.user?.id, action: 'legal.reset', entityType: 'legal_document', entityId: slug });
   return res.json({ slug, customized: false });
 };
