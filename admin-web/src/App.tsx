@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Layout from './components/Layout';
 import { useAdminAuth } from './context/AdminAuthContext';
 import Dashboard from './pages/Dashboard';
@@ -15,10 +16,41 @@ import Support from './pages/Support';
 import Logs from './pages/Logs';
 import Users from './pages/Users';
 
-/** Écran de chargement identique au splash de l'app : logo, nom et barre de progression. */
-function FullscreenLoader() {
+/** Splash identique à SplashLoader de l'app : barre jusqu'à 85 %, puis 100 % et fondu une fois prêt. */
+const SPLASH_MIN_MS = 2200;
+let splashPlayed = false;
+
+function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }) {
+  const [width, setWidth] = useState('0%');
+  const [opacity, setOpacity] = useState(1);
+  const [finishing, setFinishing] = useState(false);
+  const [minElapsed, setMinElapsed] = useState(false);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setWidth('85%'));
+    const timer = setTimeout(() => setMinElapsed(true), SPLASH_MIN_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !minElapsed) return;
+    setFinishing(true);
+    setWidth('100%');
+    setOpacity(0);
+    const timer = setTimeout(() => onDoneRef.current(), 650);
+    return () => clearTimeout(timer);
+  }, [ready, minElapsed]);
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white">
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white"
+      style={{ opacity, transition: 'opacity 350ms linear' }}
+    >
       <img
         src="/logo.png"
         alt="Artisants"
@@ -30,7 +62,12 @@ function FullscreenLoader() {
       <div className="mt-3 h-1.5 w-[55%] overflow-hidden rounded-full bg-[#E5E7EB]">
         <div
           className="h-full rounded-full bg-[#007AFF]"
-          style={{ animation: 'splash-progress 2200ms cubic-bezier(0.5, 1, 0.89, 1) forwards' }}
+          style={{
+            width,
+            transition: finishing
+              ? 'width 300ms linear'
+              : `width ${SPLASH_MIN_MS}ms cubic-bezier(0.5, 1, 0.89, 1)`,
+          }}
         />
       </div>
     </div>
@@ -41,8 +78,20 @@ function FullscreenLoader() {
 function Protected({ children }: { children: ReactNode }) {
   const { isLoading, session, isAdmin, profileReady } = useAdminAuth();
   const location = useLocation();
+  const [splashDone, setSplashDone] = useState(splashPlayed);
 
-  if (isLoading || !profileReady) return <FullscreenLoader />;
+  if (!splashDone) {
+    return (
+      <Splash
+        ready={!isLoading && profileReady}
+        onDone={() => {
+          splashPlayed = true;
+          setSplashDone(true);
+        }}
+      />
+    );
+  }
+  if (isLoading || !profileReady) return <Splash ready={false} onDone={() => {}} />;
   if (!session || !isAdmin) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }

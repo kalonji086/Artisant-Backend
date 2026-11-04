@@ -10,12 +10,6 @@
   --color-surface: #f0f0f3;
 }
 
-/* Splash de chargement, aligné sur SplashLoader de l'app mobile */
-@keyframes splash-progress {
-  from { width: 0%; }
-  to { width: 85%; }
-}
-
 html {
   font-family:
     ui-sans-serif,
