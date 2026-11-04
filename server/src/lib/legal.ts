@@ -208,7 +208,7 @@ const privacySections = (branding: Branding, baseUrl: string): Section[] => {
       title: 'Vos droits',
       html: `<p>Selon votre lieu de résidence, vous disposez des droits suivants : accès, rectification, effacement, limitation, opposition, portabilité, retrait du consentement, et droit de ne pas faire l'objet d'une décision automatisée. Les résidents de Californie ont aussi le droit de savoir, de supprimer et de refuser la vente ou le partage de leurs données (nous ne vendons pas de données).</p>
 <p>Pour exercer vos droits, écrivez à <a href="mailto:${email}">${email}</a>. Nous répondons dans un délai d'un mois. Vous pouvez aussi saisir votre autorité de protection des données.</p>
-<div class="note"><b>Suppression du compte :</b> envoyez une demande à <a href="mailto:${email}">${email}</a> depuis l'adresse email de votre compte. Vos données seront supprimées, sauf celles que la loi nous oblige à conserver.</div>`,
+<div class="note"><b>Suppression du compte :</b> faites la demande directement sur <a href="${baseUrl}/account-deletion">${baseUrl}/account-deletion</a> (ou depuis l'adresse email de votre compte, à <a href="mailto:${email}">${email}</a>). Vos données seront supprimées, sauf celles que la loi nous oblige à conserver.</div>`,
     },
     {
       title: 'Sécurité',

@@ -53,6 +53,13 @@ export const getBranding = async (): Promise<Branding> => {
   return value;
 };
 
+/** Chemin public du formulaire de demande de suppression de compte (Play Store + emails). */
+export const ACCOUNT_DELETION_PATH = '/account-deletion';
+
+/** Lien vers la demande de suppression de compte, inséré dans les emails. */
+export const accountDeletionLinkHtml = (baseUrl: string): string =>
+  `<p style="margin:0 0 6px;font-size:12px;"><a href="${baseUrl}${ACCOUNT_DELETION_PATH}" style="color:#6b7280;">Demander la suppression de mon compte</a></p>`;
+
 /** Pied de page commun aux emails : liens légaux, réseaux sociaux, contact et désinscription. */
 export const buildEmailFooter = (branding: Branding, baseUrl: string, unsubUrl?: string): string => {
   const socials = branding.socials
@@ -73,6 +80,7 @@ export const buildEmailFooter = (branding: Branding, baseUrl: string, unsubUrl?:
     <p style="margin:0 0 6px;font-size:12px;color:#6b7280;">
       Une question ? <a href="mailto:${escapeHtml(branding.contactEmail)}" style="${link}">${escapeHtml(branding.contactEmail)}</a>
     </p>
+    ${accountDeletionLinkHtml(baseUrl)}
     ${unsubUrl ? `<p style="margin:0 0 6px;font-size:12px;"><a href="${unsubUrl}" style="color:#6b7280;">Se désinscrire</a></p>` : ''}
     <p style="margin:8px 0 0;font-size:11px;color:#9ca3af;">© ${new Date().getFullYear()} ${escapeHtml(branding.platformName)}. Tous droits réservés.</p>`;
 };

@@ -12,8 +12,9 @@ import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
 import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
-import { getBranding } from './lib/branding';
+import { getBranding, ACCOUNT_DELETION_PATH } from './lib/branding';
 import { renderPrivacyPage, renderTermsPage } from './lib/legal';
+import { renderAccountDeletionPage, submitAccountDeletion } from './lib/account-deletion';
 import { getCustomDoc } from './api/legal.controller';
 import { startCampaignScheduler } from './lib/marketing';
 import { errorHandler } from './middleware/error-handler';
@@ -166,6 +167,32 @@ app.get('/legal/terms', async (req, res) => {
   res.set('Cache-Control', 'no-cache').type('html').send(
     renderTermsPage(await getBranding(), legalBase(req), await getCustomDoc('terms'))
   );
+});
+// Demande de suppression de compte (publique, lien depuis les emails et Play Store)
+const deletionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Trop de demandes, veuillez réessayer plus tard',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.get(ACCOUNT_DELETION_PATH, async (_req, res) => {
+  res.set('Cache-Control', 'no-cache').type('html').send(renderAccountDeletionPage(await getBranding()));
+});
+app.post(ACCOUNT_DELETION_PATH, deletionLimiter, express.urlencoded({ extended: false }), async (req, res, next) => {
+  try {
+    const branding = await getBranding();
+    const result = await submitAccountDeletion(req.body ?? {});
+    if (result.ok) {
+      res.set('Cache-Control', 'no-cache').type('html').send(renderAccountDeletionPage(branding, { success: true }));
+      return;
+    }
+    res.status(400).set('Cache-Control', 'no-cache').type('html').send(
+      renderAccountDeletionPage(branding, { error: result.error, values: result.values })
+    );
+  } catch (err) {
+    next(err);
+  }
 });
 app.use('/admin', express.static(adminDistPath));
 app.get(['/admin', '/admin/'], (_req, res) => {

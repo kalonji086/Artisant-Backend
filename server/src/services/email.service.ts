@@ -1,4 +1,5 @@
 import { logger } from '../lib/logger';
+import { accountDeletionLinkHtml } from '../lib/branding';
 import SibApiV3Sdk = require('sib-api-v3-sdk');
 
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
@@ -41,9 +42,10 @@ export const EmailTemplates = {
 
 export const sendEmail = async (to: string, template: { subject: string, htmlContent: string }) => {
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+  const baseUrl = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
   sendSmtpEmail.subject = template.subject;
-  sendSmtpEmail.htmlContent = template.htmlContent;
+  sendSmtpEmail.htmlContent = `${template.htmlContent}<div style="margin-top:24px;font-size:12px;">${accountDeletionLinkHtml(baseUrl)}</div>`;
   sendSmtpEmail.sender = { name: "ARTISANTS", email: "noreply@artisants.com" }; // À configurer dans Brevo
   sendSmtpEmail.to = [{ email: to }];
 
