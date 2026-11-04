@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import Layout from './components/Layout';
-import { Spinner } from './components/ui';
 import { useAdminAuth } from './context/AdminAuthContext';
 import Dashboard from './pages/Dashboard';
 import EmployerRequests from './pages/EmployerRequests';
@@ -16,10 +15,24 @@ import Support from './pages/Support';
 import Logs from './pages/Logs';
 import Users from './pages/Users';
 
+/** Écran de chargement identique au splash de l'app : logo, nom et barre de progression. */
 function FullscreenLoader() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface">
-      <Spinner className="h-8 w-8 text-brand" />
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white">
+      <img
+        src="/logo.png"
+        alt="Artisants"
+        width={150}
+        height={150}
+        className="h-[150px] w-[150px] rounded-[33px] object-contain"
+      />
+      <span className="text-[26px] font-bold text-[#222]">Artisants</span>
+      <div className="mt-3 h-1.5 w-[55%] overflow-hidden rounded-full bg-[#E5E7EB]">
+        <div
+          className="h-full rounded-full bg-[#007AFF]"
+          style={{ animation: 'splash-progress 2200ms cubic-bezier(0.5, 1, 0.89, 1) forwards' }}
+        />
+      </div>
     </div>
   );
 }
