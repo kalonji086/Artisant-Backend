@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
+import UserManagePanel from '../components/UserManagePanel';
 import { SearchIcon, ToolIcon, TrendIcon, UsersIcon } from '../components/icons';
 import { EmptyState, ErrorState, FilterTabs, LoadingBlock, PageHeader, StatStrip } from '../components/ui';
 import { AdminService, apiErrorMessage } from '../lib/api';
@@ -168,7 +169,10 @@ export default function Users() {
                     </td>
                     <td className="px-4 py-3 text-muted">{profile.email ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <StatusBadge value={profile.role ?? 'client'} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge value={profile.role ?? 'client'} />
+                        {profile.is_suspended ? <StatusBadge value="suspended" /> : null}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-muted">{profile.role === 'artisan' ? (profile.profession ?? '—') : '—'}</td>
                     <td className="px-4 py-3">
@@ -198,14 +202,23 @@ export default function Users() {
         <Pagination pagination={result.pagination} onPage={setPage} />
       ) : null}
 
-      {selected ? <UserDetails profile={selected} onClose={() => setSelectedId(null)} /> : null}
+      {selected ? (
+        <UserDetails
+          profile={selected}
+          onClose={() => setSelectedId(null)}
+          onDeleted={() => {
+            setSelectedId(null);
+            void load(true);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
 const GENDER_LABELS: Record<string, string> = { homme: 'Homme', femme: 'Femme', autre: 'Autre' };
 
-function UserDetails({ profile, onClose }: { profile: Profile; onClose: () => void }) {
+function UserDetails({ profile, onClose, onDeleted }: { profile: Profile; onClose: () => void; onDeleted: () => void }) {
   const isArtisan = profile.role === 'artisan';
   const rows: [string, string][] = [
     ['Email', profile.email ?? '—'],
@@ -258,6 +271,7 @@ function UserDetails({ profile, onClose }: { profile: Profile; onClose: () => vo
             </div>
           ))}
         </dl>
+        <UserManagePanel profile={profile} onDeleted={onDeleted} />
       </aside>
     </div>
   );

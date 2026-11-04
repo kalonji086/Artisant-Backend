@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { logActivity } from '../lib/activity';
-import { updateEmployerRequestSchema } from '../lib/validation';
+import { updateEmployerRequestSchema, updateUserSchema, reasonSchema } from '../lib/validation';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
@@ -254,7 +254,7 @@ export const getUsers = async (req: Request, res: Response) => {
   try {
     let query = supabase
       .from('profiles')
-      .select('id, full_name, phone, role, avatar_url, is_available, rating, address, city, profession, description, created_at', {
+      .select('id, full_name, phone, role, avatar_url, is_available, rating, address, city, profession, description, created_at, is_suspended, suspended_at, suspension_reason', {
         count: 'exact',
       });
 
@@ -484,6 +484,202 @@ export const updateEmployerRequestStatus = async (req: Request, res: Response) =
       ? err.message
       : 'Erreur inconnue lors de la mise à jour de la demande';
     res.status(500).json({ error: message });
+  }
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Durée de bannissement Supabase effective « indéfiniment » (≈ 100 ans)
+const BAN_FOREVER = '876000h';
+
+const errorMessageOf = (err: unknown, fallback: string): string =>
+  err instanceof Error
+    ? err.message
+    : typeof err === 'object' && err !== null && 'message' in err && typeof err.message === 'string'
+      ? err.message
+      : fallback;
+
+/** Charge un utilisateur géré par l'admin. Refuse les actions sur soi-même et sur un autre admin. */
+const loadManagedUser = async (
+  adminId: string | undefined,
+  id: string,
+  { allowSelf = false }: { allowSelf?: boolean } = {}
+): Promise<{ status: number; error?: string; profile?: Record<string, unknown> }> => {
+  if (!UUID_RE.test(id)) return { status: 400, error: 'Identifiant utilisateur invalide' };
+  if (!allowSelf && id === adminId) return { status: 400, error: 'Action impossible sur votre propre compte' };
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, role, full_name, is_suspended')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return { status: 404, error: 'Utilisateur non trouvé' };
+  if (data.role === 'admin') return { status: 403, error: 'Les comptes administrateurs ne peuvent pas être modifiés ici' };
+  return { status: 200, profile: data };
+};
+
+/**
+ * PATCH /api/v1/admin/users/:id
+ * Modifie les informations d'un profil (et le rôle client/artisan). Motif obligatoire.
+ */
+export const updateUser = async (req: Request, res: Response) => {
+  const admin = (req as AuthenticatedRequest).user;
+  const { id } = req.params;
+
+  const parsed = updateUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Données de requête invalides',
+      details: parsed.error.errors.map((e) => ({ field: e.path.join('.'), message: e.message })),
+    });
+  }
+
+  const { reason, ...fields } = parsed.data;
+  const changes = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+  if (Object.keys(changes).length === 0) {
+    return res.status(400).json({ error: 'Aucune modification fournie' });
+  }
+
+  try {
+    const check = await loadManagedUser(admin?.id, id);
+    if (check.error) return res.status(check.status).json({ error: check.error });
+    const before = check.profile!;
+
+    if (changes.role !== undefined && id === admin?.id) {
+      return res.status(400).json({ error: 'Vous ne pouvez pas changer votre propre rôle' });
+    }
+
+    // Le rôle est protégé par le trigger prevent_role_change : la clé service role est autorisée.
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(changes)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    await logActivity({
+      actorId: admin?.id,
+      action: changes.role !== undefined && changes.role !== before.role ? 'user.role_changed' : 'user.updated',
+      entityType: 'user',
+      entityId: id,
+      metadata: {
+        reason,
+        fields: Object.keys(changes),
+        ...(changes.role !== undefined ? { role_from: before.role, role_to: changes.role } : {}),
+      },
+    });
+
+    res.json(data);
+  } catch (err: unknown) {
+    res.status(500).json({ error: errorMessageOf(err, 'Erreur lors de la mise à jour de l\'utilisateur') });
+  }
+};
+
+/**
+ * POST /api/v1/admin/users/:id/suspend
+ * Suspend le compte : bannissement auth (connexion impossible) + statut affiché en temps réel.
+ */
+export const suspendUser = async (req: Request, res: Response) => {
+  const admin = (req as AuthenticatedRequest).user;
+  const { id } = req.params;
+
+  const parsed = reasonSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+  const { reason } = parsed.data;
+
+  try {
+    const check = await loadManagedUser(admin?.id, id);
+    if (check.error) return res.status(check.status).json({ error: check.error });
+
+    const { error: banError } = await supabase.auth.admin.updateUserById(id, { ban_duration: BAN_FOREVER });
+    if (banError) throw banError;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_suspended: true, suspended_at: new Date().toISOString(), suspension_reason: reason })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    await logActivity({ actorId: admin?.id, action: 'user.suspended', entityType: 'user', entityId: id, metadata: { reason } });
+    res.json(data);
+  } catch (err: unknown) {
+    res.status(500).json({ error: errorMessageOf(err, 'Erreur lors de la suspension du compte') });
+  }
+};
+
+/**
+ * POST /api/v1/admin/users/:id/reactivate
+ * Lève la suspension (retire le bannissement auth).
+ */
+export const reactivateUser = async (req: Request, res: Response) => {
+  const admin = (req as AuthenticatedRequest).user;
+  const { id } = req.params;
+
+  const parsed = reasonSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+  const { reason } = parsed.data;
+
+  try {
+    const check = await loadManagedUser(admin?.id, id);
+    if (check.error) return res.status(check.status).json({ error: check.error });
+
+    const { error: unbanError } = await supabase.auth.admin.updateUserById(id, { ban_duration: 'none' });
+    if (unbanError) throw unbanError;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_suspended: false, suspended_at: null, suspension_reason: null })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    await logActivity({ actorId: admin?.id, action: 'user.reactivated', entityType: 'user', entityId: id, metadata: { reason } });
+    res.json(data);
+  } catch (err: unknown) {
+    res.status(500).json({ error: errorMessageOf(err, 'Erreur lors de la réactivation du compte') });
+  }
+};
+
+/**
+ * POST /api/v1/admin/users/:id/delete
+ * Suppression définitive du compte (profil, données liées en cascade, et utilisateur auth).
+ * Le motif est journalisé ; l'email est conservé dans le journal pour traçabilité.
+ */
+export const deleteUserAccount = async (req: Request, res: Response) => {
+  const admin = (req as AuthenticatedRequest).user;
+  const { id } = req.params;
+
+  const parsed = reasonSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+  const { reason } = parsed.data;
+
+  try {
+    const check = await loadManagedUser(admin?.id, id);
+    if (check.error) return res.status(check.status).json({ error: check.error });
+
+    const { data: details } = await supabase.from('profile_details').select('email').eq('user_id', id).maybeSingle();
+    const email = (details?.email as string | undefined) ?? null;
+
+    const { error: profileError } = await supabase.from('profiles').delete().eq('id', id);
+    if (profileError) throw profileError;
+
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+    if (authError) throw authError;
+
+    await logActivity({
+      actorId: admin?.id,
+      action: 'user.deleted',
+      entityType: 'user',
+      entityId: id,
+      metadata: { reason, email, role: check.profile?.role ?? null },
+    });
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: errorMessageOf(err, 'Erreur lors de la suppression du compte') });
   }
 };
 

@@ -4,6 +4,10 @@ import {
   getEmployerRequests,
   getQuotes,
   getUsers,
+  updateUser,
+  suspendUser,
+  reactivateUser,
+  deleteUserAccount,
   updateEmployerRequestStatus,
   getDatabaseStatus,
 } from './admin.controller';
@@ -75,6 +79,62 @@ router.get('/stats', getAdminStats);
  *         description: Accès réservé aux administrateurs
  */
 router.get('/users', getUsers);
+
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}:
+ *   patch:
+ *     summary: Modifier un utilisateur (infos, rôle) avec motif obligatoire
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profil mis à jour
+ */
+router.patch('/users/:id', updateUser);
+
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}/suspend:
+ *   post:
+ *     summary: Suspendre un compte (connexion bloquée) avec motif
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Compte suspendu
+ */
+router.post('/users/:id/suspend', suspendUser);
+
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}/reactivate:
+ *   post:
+ *     summary: Réactiver un compte suspendu avec motif
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Compte réactivé
+ */
+router.post('/users/:id/reactivate', reactivateUser);
+
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}/delete:
+ *   post:
+ *     summary: Supprimer définitivement un compte avec motif
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Compte supprimé
+ */
+router.post('/users/:id/delete', deleteUserAccount);
 
 /**
  * @swagger

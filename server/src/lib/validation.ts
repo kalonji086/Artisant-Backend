@@ -34,6 +34,22 @@ export const updateEmployerRequestSchema = z.object({
   admin_notes: z.string().max(1000, 'Les notes admin sont limitées à 1000 caractères').optional(),
 });
 
+// Gestion des utilisateurs (admin) : motif obligatoire pour toute action sensible
+const reasonField = z.string().trim().min(3, 'Le motif doit contenir au moins 3 caractères').max(500);
+
+export const reasonSchema = z.object({ reason: reasonField });
+
+export const updateUserSchema = z.object({
+  reason: reasonField,
+  full_name: z.string().trim().min(2).max(120).optional(),
+  phone: z.string().trim().max(30).nullable().optional(),
+  city: z.string().trim().max(120).nullable().optional(),
+  address: z.string().trim().max(255).nullable().optional(),
+  profession: z.string().trim().max(120).nullable().optional(),
+  description: z.string().trim().max(1000).nullable().optional(),
+  role: z.enum(['client', 'artisan']).optional(),
+});
+
 // Middleware de validation Zod générique
 export const validate = (schema: z.ZodTypeAny) => {
   return (req: Request, res: Response, next: NextFunction) => {

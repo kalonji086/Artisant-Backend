@@ -22,7 +22,21 @@ export interface Profile {
   service_radius_km?: number | null;
   terms_accepted_at?: string | null;
   terms_version?: string | null;
+  is_suspended?: boolean;
+  suspended_at?: string | null;
+  suspension_reason?: string | null;
   created_at: string;
+}
+
+export interface UserUpdateBody {
+  reason: string;
+  full_name?: string;
+  phone?: string | null;
+  city?: string | null;
+  address?: string | null;
+  profession?: string | null;
+  description?: string | null;
+  role?: ProfileRole;
 }
 
 export interface Quote {

@@ -12,6 +12,7 @@ const META: Record<string, { label: string; className: string }> = {
   admin: { label: 'Admin', className: 'bg-violet-50 text-violet-700 ring-violet-200' },
   client: { label: 'Client', className: 'bg-sky-50 text-sky-700 ring-sky-200' },
   artisan: { label: 'Artisan', className: 'bg-brand-light text-brand-dark ring-brand/30' },
+  suspended: { label: 'Suspendu', className: 'bg-red-50 text-red-700 ring-red-200' },
 };
 
 export default function StatusBadge({ value }: { value: string }) {
