@@ -2,9 +2,16 @@ import { Request, Response } from 'express';
 import { logger } from '../lib/logger';
 import { EmailTemplates, sendEmail } from '../services/email.service';
 import { supabase } from '../lib/supabase';
+import { handlePushEvent } from '../services/push-events.service';
 
 export const handleSupabaseWebhook = async (req: Request, res: Response) => {
-  const { record, type, table } = req.body;
+  const { record, type, table, old_record } = req.body;
+
+  if (table === 'chat_messages' || table === 'quotes') {
+    await handlePushEvent(table, type, record ?? {}, old_record ?? null);
+    res.status(200).json({ received: true });
+    return;
+  }
 
   // Supabase envoie les données de l'insertion dans 'record'
   if (table === 'profiles' && type === 'INSERT') {
