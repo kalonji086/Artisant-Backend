@@ -12,6 +12,7 @@ import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
 import restoreRoutes from './api/restore.routes';
+import supportRequestRoutes from './api/support-requests.routes';
 import { getAssetLinks } from './api/restore.controller';
 import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
 import { getBranding, ACCOUNT_DELETION_PATH } from './lib/branding';
@@ -144,6 +145,7 @@ app.use(`${API_VERSION}/unsubscribe`, unsubscribeRouter);
 app.use(`${API_VERSION}/admin`, adminRoutes);
 app.use(`${API_VERSION}/webhooks`, webhookRoutes);
 app.use(`${API_VERSION}/auth/restore`, restoreRoutes);
+app.use(`${API_VERSION}/support-requests`, supportRequestRoutes);
 
 // Vérification Digital Asset Links (Restore Credentials / Credential Manager)
 app.get('/.well-known/assetlinks.json', getAssetLinks);
