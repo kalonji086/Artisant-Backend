@@ -6,7 +6,7 @@ import { updateEmployerRequestSchema, updateUserSchema, reasonSchema } from '../
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
-const QUOTE_STATUSES = ['unassigned', 'assigned', 'pending', 'accepted', 'rejected', 'completed'] as const;
+const QUOTE_STATUSES = ['unassigned', 'assigned', 'pending', 'accepted', 'in_progress', 'rejected', 'completed'] as const;
 const PROFILE_ROLES = ['client', 'artisan'] as const;
 const EMPLOYER_REQUEST_STATUSES = ['pending', 'approved', 'rejected'] as const;
 

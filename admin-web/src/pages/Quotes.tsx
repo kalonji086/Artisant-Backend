@@ -15,6 +15,7 @@ const STATUS_OPTIONS = [
   { value: 'assigned', label: 'Assignés' },
   { value: 'pending', label: 'En attente' },
   { value: 'accepted', label: 'Acceptés' },
+  { value: 'in_progress', label: 'En cours' },
   { value: 'rejected', label: 'Rejetés' },
   { value: 'completed', label: 'Terminés' },
 ];
@@ -151,7 +152,7 @@ export default function Quotes() {
                       {formatDate(quote.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {quote.status === 'unassigned' || quote.status === 'assigned' || quote.status === 'pending' ? (
+                      {quote.status === 'unassigned' || quote.status === 'assigned' || quote.status === 'pending' || quote.status === 'rejected' ? (
                         <button
                           type="button"
                           onClick={() =>
