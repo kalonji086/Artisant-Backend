@@ -11,6 +11,8 @@ import artisanRoutes from './api/artisan.routes';
 import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
+import restoreRoutes from './api/restore.routes';
+import { getAssetLinks } from './api/restore.controller';
 import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
 import { getBranding, ACCOUNT_DELETION_PATH } from './lib/branding';
 import { renderPrivacyPage, renderTermsPage } from './lib/legal';
@@ -141,6 +143,10 @@ app.use(`${API_VERSION}/admin/marketing`, marketingRouter);
 app.use(`${API_VERSION}/unsubscribe`, unsubscribeRouter);
 app.use(`${API_VERSION}/admin`, adminRoutes);
 app.use(`${API_VERSION}/webhooks`, webhookRoutes);
+app.use(`${API_VERSION}/auth/restore`, restoreRoutes);
+
+// Vérification Digital Asset Links (Restore Credentials / Credential Manager)
+app.get('/.well-known/assetlinks.json', getAssetLinks);
 
 app.get('/', (_req, res) => {
   res.json({ message: 'Bienvenue sur l\'API ARTISANTS 🚀', status: 'OK', apiVersion: API_VERSION });
