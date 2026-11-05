@@ -18,7 +18,7 @@ import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
 import { getBranding, ACCOUNT_DELETION_PATH } from './lib/branding';
 import { renderPrivacyPage, renderTermsPage } from './lib/legal';
 import { renderAccountDeletionPage, submitAccountDeletion } from './lib/account-deletion';
-import { getCustomDoc } from './api/legal.controller';
+import { getCustomDoc, getLegalDocument } from './api/legal.controller';
 import { startCampaignScheduler } from './lib/marketing';
 import { errorHandler } from './middleware/error-handler';
 import { correlationIdMiddleware } from './middleware/correlation-id';
@@ -146,6 +146,11 @@ app.use(`${API_VERSION}/admin`, adminRoutes);
 app.use(`${API_VERSION}/webhooks`, webhookRoutes);
 app.use(`${API_VERSION}/auth/restore`, restoreRoutes);
 app.use(`${API_VERSION}/support-requests`, supportRequestRoutes);
+// Documents légaux publics pour l'application mobile (même contenu que /legal/*, modifiable depuis l'admin)
+app.get(`${API_VERSION}/legal/:slug`, (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, getLegalDocument);
 
 // Vérification Digital Asset Links (Restore Credentials / Credential Manager)
 app.get('/.well-known/assetlinks.json', getAssetLinks);
