@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import AssignPanel, { type AssignTarget } from '../components/AssignPanel';
@@ -18,6 +18,7 @@ interface PersonPoint {
     phone: string | null;
     profession: string | null;
     is_available: boolean | null;
+    avatar_url: string | null;
   } | null;
 }
 
@@ -53,6 +54,21 @@ function timeAgo(iso: string): string {
   if (s < 3600) return `il y a ${Math.round(s / 60)} min`;
   if (s < 86400) return `il y a ${Math.round(s / 3600)} h`;
   return `il y a ${Math.round(s / 86400)} j`;
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** Pastille ronde : photo de l'artisan, ou avatar avec initiale s'il n'en a pas. */
+function avatarIcon(name: string | null, url: string | null, color: string, faded: boolean): L.DivIcon {
+  const initial = escapeHtml((name?.trim()[0] ?? '?').toUpperCase());
+  const safeUrl = url && /^https?:\/\//i.test(url) ? escapeHtml(url) : null;
+  const base = `width:40px;height:40px;border-radius:50%;border:3px solid ${color};box-shadow:0 2px 6px rgba(0,0,0,.35);overflow:hidden;box-sizing:border-box;opacity:${faded ? 0.5 : 1};`;
+  const fallback = `<div style="${base}background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font:700 16px sans-serif;">${initial}</div>`;
+  const html = safeUrl
+    ? `<div style="${base}background:${color};"><img src="${safeUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentNode.outerHTML=decodeURIComponent('${encodeURIComponent(fallback)}')" /></div>`
+    : fallback;
+  return L.divIcon({ html, className: '', iconSize: [40, 40], iconAnchor: [20, 20] });
 }
 
 /** Cadre la carte sur tous les points, une seule fois (au premier chargement). */
@@ -103,7 +119,7 @@ export default function LiveMap() {
     const profRes = ids.length
       ? await supabase
           .from('profiles')
-          .select('id, full_name, role, phone, profession, is_available')
+          .select('id, full_name, role, phone, profession, is_available, avatar_url')
           .in('id', ids)
       : { data: [], error: null };
     if (profRes.error) throw new Error(profRes.error.message);
@@ -242,18 +258,17 @@ export default function LiveMap() {
                   : COLORS.artisan
                 : COLORS.client;
               return (
-                <CircleMarker
+                <Marker
                   key={p.user_id}
-                  center={[p.latitude, p.longitude]}
-                  radius={8}
-                  pathOptions={{ color: '#fff', weight: 2, fillColor: color, fillOpacity: stale ? 0.45 : 0.95 }}
+                  position={[p.latitude, p.longitude]}
+                  icon={avatarIcon(p.profile?.full_name ?? null, p.profile?.avatar_url ?? null, color, stale)}
                   eventHandlers={{ click: () => selectPerson(p) }}
                 >
                   <Tooltip>
                     {p.profile?.full_name ?? 'Utilisateur'} ({isArtisan ? 'artisan' : 'client'}) ·{' '}
                     {timeAgo(p.updated_at)}
                   </Tooltip>
-                </CircleMarker>
+                </Marker>
               );
             })}
 
@@ -293,6 +308,9 @@ export default function LiveMap() {
             <div className="rounded-2xl border border-gray-100 bg-white p-4 text-sm shadow-sm">
               {selection.kind === 'person' ? (
                 <>
+                  {selection.point.profile?.avatar_url ? (
+                    <img src={selection.point.profile.avatar_url} alt="" className="mb-2 h-16 w-16 rounded-full object-cover" />
+                  ) : null}
                   <p className="font-semibold text-ink">{selection.point.profile?.full_name ?? 'Utilisateur'}</p>
                   <p className="text-muted">
                     {selection.point.profile?.role === 'artisan' ? 'Artisan' : 'Client'}
