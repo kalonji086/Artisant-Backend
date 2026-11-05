@@ -17,6 +17,13 @@ interface PlatformSettings {
   x_url?: string;
   linkedin_url?: string;
   instagram_url?: string;
+  app_primary_color?: string;
+  default_language?: string;
+  default_theme?: string;
+  maintenance_mode?: boolean;
+  maintenance_message?: string;
+  announcement?: string;
+  allow_signups?: boolean;
   updated_at: string;
 }
 
@@ -31,7 +38,12 @@ type EditableKey =
   | 'github_url'
   | 'x_url'
   | 'linkedin_url'
-  | 'instagram_url';
+  | 'instagram_url'
+  | 'app_primary_color'
+  | 'default_language'
+  | 'default_theme'
+  | 'maintenance_message'
+  | 'announcement';
 
 const SOCIAL_FIELDS: { key: EditableKey; label: string; placeholder: string }[] = [
   { key: 'facebook_url', label: 'Facebook', placeholder: 'https://facebook.com/votrepage' },
@@ -79,6 +91,8 @@ export default function Settings() {
 
   const set = (key: EditableKey, value: string) =>
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
+  const setFlag = (key: 'maintenance_mode' | 'allow_signups', value: boolean) =>
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +111,13 @@ export default function Settings() {
         x_url: settings.x_url ?? '',
         linkedin_url: settings.linkedin_url ?? '',
         instagram_url: settings.instagram_url ?? '',
+        app_primary_color: settings.app_primary_color ?? '#007AFF',
+        default_language: settings.default_language ?? 'fr',
+        default_theme: settings.default_theme ?? 'light',
+        maintenance_mode: settings.maintenance_mode ?? false,
+        maintenance_message: settings.maintenance_message ?? '',
+        announcement: settings.announcement ?? '',
+        allow_signups: settings.allow_signups ?? true,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -159,6 +180,48 @@ export default function Settings() {
               <Field label="Email de support" hint="Affiché aux utilisateurs pour toute demande d'aide.">
                 <input type="email" value={settings.support_email} onChange={(e) => set('support_email', e.target.value)} className={INPUT} />
               </Field>
+            </div>
+          </Card>
+
+          <Card title="Application mobile" subtitle="Appliqué en temps réel aux apps client et artisan" icon={<SettingsIcon className="h-5 w-5" />}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Couleur principale">
+                <div className="flex items-center gap-2">
+                  <input type="color" value={settings.app_primary_color ?? '#007AFF'} onChange={(e) => set('app_primary_color', e.target.value.toUpperCase())} className="h-10 w-14 cursor-pointer rounded-lg border border-gray-200 bg-white p-1" />
+                  <input type="text" value={settings.app_primary_color ?? '#007AFF'} onChange={(e) => set('app_primary_color', e.target.value)} className={INPUT} maxLength={7} />
+                </div>
+              </Field>
+              <Field label="Langue par défaut">
+                <select value={settings.default_language ?? 'fr'} onChange={(e) => set('default_language', e.target.value)} className={INPUT}>
+                  <option value="fr">Français</option>
+                  <option value="en">English</option>
+                </select>
+              </Field>
+              <Field label="Thème par défaut">
+                <select value={settings.default_theme ?? 'light'} onChange={(e) => set('default_theme', e.target.value)} className={INPUT}>
+                  <option value="light">Clair</option>
+                  <option value="dark">Sombre</option>
+                  <option value="system">Système</option>
+                </select>
+              </Field>
+              <div className="sm:col-span-3">
+                <Field label="Annonce (bandeau affiché dans l'app)" hint="Laissez vide pour ne rien afficher.">
+                  <input type="text" value={settings.announcement ?? ''} onChange={(e) => set('announcement', e.target.value)} className={INPUT} maxLength={500} />
+                </Field>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-medium text-ink sm:col-span-3">
+                <input type="checkbox" checked={settings.allow_signups ?? true} onChange={(e) => setFlag('allow_signups', e.target.checked)} />
+                Autoriser les nouvelles inscriptions
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-ink sm:col-span-3">
+                <input type="checkbox" checked={settings.maintenance_mode ?? false} onChange={(e) => setFlag('maintenance_mode', e.target.checked)} />
+                Mode maintenance (bloque l'app pour les clients et artisans)
+              </label>
+              <div className="sm:col-span-3">
+                <Field label="Message de maintenance">
+                  <input type="text" value={settings.maintenance_message ?? ''} onChange={(e) => set('maintenance_message', e.target.value)} className={INPUT} maxLength={500} />
+                </Field>
+              </div>
             </div>
           </Card>
 
