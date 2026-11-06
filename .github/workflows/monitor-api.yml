@@ -1,0 +1,48 @@
+name: Monitor production API
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-availability-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Restore previous monitor state
+        uses: actions/cache/restore@v4
+        with:
+          path: .monitor-state
+          key: api-monitor-state-${{ github.run_id }}
+          restore-keys: |
+            api-monitor-state-
+
+      - name: Check API and send transition alerts
+        run: npm --prefix server run monitor
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_SENDER_EMAIL: ${{ vars.BREVO_SENDER_EMAIL }}
+          MONITOR_URL: ${{ vars.MONITOR_URL }}
+
+      - name: Save monitor state
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: .monitor-state
+          key: api-monitor-state-${{ github.run_id }}

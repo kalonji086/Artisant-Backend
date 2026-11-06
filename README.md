@@ -87,3 +87,19 @@ Le dépôt de déploiement est `kalonji086/Artisant-Backend`, branche `main`.
 La configuration Render se trouve dans `server/render.yaml`. Renseigner les
 variables requises dans Render avec les valeurs du projet choisi; les clés
 privées ne doivent jamais être ajoutées au dépôt GitHub.
+
+## Surveillance de l'API
+
+Le workflow `.github/workflows/monitor-api.yml` vérifie l'endpoint de santé de
+production toutes les cinq minutes (GitHub Actions peut retarder une exécution
+planifiée). Il envoie un e-mail via Brevo à `togethertechsupport@gmail.com`
+lorsque l'API devient indisponible, puis à son retour. L'état est mémorisé dans
+le cache Actions pour éviter les alertes répétées pendant une même panne.
+
+Dans **Settings → Secrets and variables → Actions** du dépôt GitHub, ajouter le
+secret `BREVO_API_KEY` et la variable `BREVO_SENDER_EMAIL` avec une adresse
+d'expéditeur vérifiée dans Brevo. La variable `MONITOR_URL` est facultative; par
+défaut, le workflow surveille
+`https://artisant-backend.onrender.com/api/v1/health`. Le workflow a besoin des
+permissions Actions par défaut en lecture du dépôt. Il peut aussi être lancé
+manuellement depuis l'onglet **Actions**.
