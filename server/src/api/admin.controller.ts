@@ -52,6 +52,32 @@ const getMonthRange = (key: string) => {
   };
 };
 
+const describeSupabaseError = (error: unknown) => {
+  const details = error && typeof error === 'object' ? error : {};
+  const code = 'code' in details && typeof details.code === 'string' ? details.code : 'unknown';
+  const message = 'message' in details && typeof details.message === 'string'
+    ? details.message
+    : error instanceof Error
+      ? error.message
+      : String(error);
+  const errorDetails = 'details' in details && typeof details.details === 'string'
+    ? details.details
+    : undefined;
+  const hint = 'hint' in details && typeof details.hint === 'string' ? details.hint : undefined;
+
+  return {
+    code,
+    message: message || 'No message provided',
+    details: errorDetails,
+    hint,
+  };
+};
+
+const isSchemaMismatch = (error: unknown) =>
+  ['PGRST200', 'PGRST204', 'PGRST205', '42703', '42P01'].includes(
+    describeSupabaseError(error).code,
+  );
+
 /**
  * GET /api/v1/admin/stats
  * Statistiques agrégées du tableau de bord principal.
@@ -142,47 +168,112 @@ export const getAdminStats = async (_req: Request, res: Response) => {
 
     let servicesByCategory: Array<{ category: string; count: number }> = [];
     try {
-      const serviceCountResults = await Promise.all([
-        ...categories.map((category) => {
-          console.log(`[STATS] Service count for category: ${category.id}`);
-          return supabase
-            .from('artisan_services')
-            .select('category_id', { count: 'exact', head: true })
-            .eq('category_id', category.id);
-        }),
-        (() => {
-          console.log('[STATS] Service count uncategorized');
-          return supabase
-            .from('artisan_services')
-            .select('category_id', { count: 'exact', head: true })
-            .is('category_id', null);
-        })(),
-      ]);
-
-      console.log('[STATS] Service count queries OK');
-
-      const serviceError = serviceCountResults.find((result) => result.error);
-      if (serviceError?.error) {
-        console.error('[STATS] Service count failed:', serviceError.error);
-        throw serviceError.error;
-      }
-
-      const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
       const serviceCounts = new Map<string, number>();
-      categories.forEach((category, index) => {
-        const name = categoryNames.get(category.id) || 'Non classé';
-        serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + (serviceCountResults[index].count ?? 0));
-      });
-      const uncategorizedCount = serviceCountResults[categories.length].count ?? 0;
-      if (uncategorizedCount > 0) {
-        serviceCounts.set('Non classé', (serviceCounts.get('Non classé') ?? 0) + uncategorizedCount);
+
+      const serviceCatalogResult = await supabase
+        .from('services')
+        .select('id, category_id');
+
+      if (!serviceCatalogResult.error) {
+        const categoryIds = new Set(categories.map((category) => String(category.id)));
+        const serviceIdsByCategory = new Map<string, string[]>();
+        const uncategorizedServiceIds: string[] = [];
+
+        for (const service of serviceCatalogResult.data ?? []) {
+          const serviceId = String(service.id);
+          const categoryId = service.category_id === null ? null : String(service.category_id);
+          if (categoryId && categoryIds.has(categoryId)) {
+            const ids = serviceIdsByCategory.get(categoryId) ?? [];
+            ids.push(serviceId);
+            serviceIdsByCategory.set(categoryId, ids);
+          } else {
+            uncategorizedServiceIds.push(serviceId);
+          }
+        }
+
+        const categoryServiceCounts = await Promise.all(categories.map(async (category) => {
+          const serviceIds = serviceIdsByCategory.get(String(category.id)) ?? [];
+          if (serviceIds.length === 0) return { category, count: 0 };
+
+          const result = await supabase
+            .from('artisan_services')
+            .select('id', { count: 'exact', head: true })
+            .in('service_id', serviceIds);
+          if (result.error) {
+            throw result.error;
+          }
+          return { category, count: result.count ?? 0 };
+        }));
+
+        for (const { category, count } of categoryServiceCounts) {
+          const name = category.name || 'Non classé';
+          serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + count);
+        }
+
+        if (uncategorizedServiceIds.length > 0) {
+          const result = await supabase
+            .from('artisan_services')
+            .select('id', { count: 'exact', head: true })
+            .in('service_id', uncategorizedServiceIds);
+          if (result.error) {
+            throw result.error;
+          }
+          if ((result.count ?? 0) > 0) {
+            serviceCounts.set(
+              'Non classé',
+              (serviceCounts.get('Non classé') ?? 0) + (result.count ?? 0),
+            );
+          }
+        }
+      } else if (isSchemaMismatch(serviceCatalogResult.error)) {
+        console.warn(
+          '[STATS] Service catalog table unavailable; using direct service categories.',
+          describeSupabaseError(serviceCatalogResult.error),
+        );
+
+        const directResults = await Promise.all([
+          ...categories.map((category) =>
+            supabase
+              .from('artisan_services')
+              .select('id', { count: 'exact', head: true })
+              .eq('category_id', category.id)
+          ),
+          supabase
+            .from('artisan_services')
+            .select('id', { count: 'exact', head: true })
+            .is('category_id', null),
+        ]);
+        const directError = directResults.find((result) => result.error)?.error;
+        if (directError) {
+          console.error('[STATS] Service count failed:', describeSupabaseError(directError));
+          throw directError;
+        }
+
+        categories.forEach((category, index) => {
+          const name = category.name || 'Non classé';
+          serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + (directResults[index].count ?? 0));
+        });
+        const uncategorizedCount = directResults[categories.length].count ?? 0;
+        if (uncategorizedCount > 0) {
+          serviceCounts.set(
+            'Non classé',
+            (serviceCounts.get('Non classé') ?? 0) + uncategorizedCount,
+          );
+        }
+      } else {
+        console.error(
+          '[STATS] Service catalog query failed:',
+          describeSupabaseError(serviceCatalogResult.error),
+        );
+        throw serviceCatalogResult.error;
       }
+
       servicesByCategory = Array.from(serviceCounts.entries())
         .map(([category, count]) => ({ category, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 8);
     } catch (err) {
-      console.error('[STATS] Skipping service count due to error:', err);
+      console.error('[STATS] Skipping service count due to error:', describeSupabaseError(err));
       // Continue without service counts - artisan_services may not be initialized
     }
 
