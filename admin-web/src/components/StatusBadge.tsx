@@ -7,6 +7,7 @@ const META: Record<string, { label: string; className: string }> = {
   in_progress: { label: 'En cours', className: 'bg-sky-50 text-sky-700 ring-sky-200' },
   rejected: { label: 'Rejeté', className: 'bg-rose-50 text-rose-700 ring-rose-200' },
   completed: { label: 'Terminé', className: 'bg-sky-50 text-sky-700 ring-sky-200' },
+  quote_sent: { label: 'Devis envoyé', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
   // Statuts de demande employeur
   approved: { label: 'Approuvée', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
   // Rôles

@@ -39,10 +39,11 @@ export const Dispatch = {
     );
   },
 
-  async assign(quoteId: string, artisanId: string) {
-    const { error } = await supabase.rpc('admin_assign_quote', {
+  async assign(quoteId: string, artisanId: string, templateKey: 'fixed' | 'detailed' = 'fixed') {
+    const { error } = await supabase.rpc('admin_assign_quote_with_template', {
       p_quote_id: quoteId,
       p_artisan_id: artisanId,
+      p_template_key: templateKey,
     });
     if (error) throw new Error(error.message);
   },

@@ -1,5 +1,5 @@
 export type ProfileRole = 'client' | 'artisan';
-export type QuoteStatus = 'unassigned' | 'assigned' | 'pending' | 'accepted' | 'in_progress' | 'rejected' | 'completed';
+export type QuoteStatus = 'unassigned' | 'assigned' | 'pending' | 'accepted' | 'in_progress' | 'rejected' | 'completed' | 'quote_sent';
 export type EmployerRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Profile {
@@ -54,6 +54,8 @@ export interface Quote {
   budget?: number | string | null;
   status: QuoteStatus;
   price: number | string | null;
+  proposal_total?: number | string | null;
+  proposal_currency?: string | null;
   created_at: string;
   client_name?: string;
   artisan_name?: string;

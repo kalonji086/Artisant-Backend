@@ -1,5 +1,12 @@
 import { Router } from 'express';
-import { createQuoteRequest, updateQuoteStatus } from './quote.controller';
+import {
+  createQuoteRequest,
+  getQuoteCurrencies,
+  getQuoteProposal,
+  saveQuoteProposal,
+  sendQuoteProposal,
+  updateQuoteStatus,
+} from './quote.controller';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
@@ -42,6 +49,10 @@ const router = Router();
  *         description: Interdit (artisan = client)
  */
 router.post('/', authenticate, createQuoteRequest);
+router.get('/currencies', authenticate, getQuoteCurrencies);
+router.get('/:id/proposal', authenticate, getQuoteProposal);
+router.put('/:id/proposal', authenticate, saveQuoteProposal);
+router.post('/:id/proposal/send', authenticate, sendQuoteProposal);
 
 /**
  * @swagger

@@ -26,6 +26,7 @@ import {
   markConversationRead,
   startSupportWithUser,
 } from './chat.controller';
+import { listQuoteTemplates, updateQuoteTemplate } from './quote.controller';
 
 const router = Router();
 
@@ -161,6 +162,8 @@ router.post('/users/:id/delete', deleteUserAccount);
  *         description: Accès réservé aux administrateurs
  */
 router.get('/quotes', getQuotes);
+router.get('/quote-templates', listQuoteTemplates);
+router.put('/quote-templates/:template_key', updateQuoteTemplate);
 
 /**
  * @swagger

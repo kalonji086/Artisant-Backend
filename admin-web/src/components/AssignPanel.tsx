@@ -23,6 +23,7 @@ export default function AssignPanel({ target, onAssigned, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [templateKey, setTemplateKey] = useState<'fixed' | 'detailed'>('fixed');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,7 +46,7 @@ export default function AssignPanel({ target, onAssigned, onClose }: Props) {
     setBusyId(busyKey);
     setError(null);
     try {
-      await Dispatch.assign(quoteId, artisanId);
+      await Dispatch.assign(quoteId, artisanId, templateKey);
       onAssigned();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Assignation impossible.');
@@ -74,6 +75,18 @@ export default function AssignPanel({ target, onAssigned, onClose }: Props) {
       </div>
 
       {error ? <p className="mt-3 rounded-lg bg-rose-50 p-2 text-sm text-rose-700">{error}</p> : null}
+
+      <label className="mt-3 block text-xs font-medium text-muted">
+        Modèle à transmettre à l’artisan
+        <select
+          value={templateKey}
+          onChange={(event) => setTemplateKey(event.target.value as 'fixed' | 'detailed')}
+          className="mt-1 block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-ink"
+        >
+          <option value="fixed">Devis forfaitaire</option>
+          <option value="detailed">Devis détaillé</option>
+        </select>
+      </label>
 
       {loading ? (
         <div className="mt-4 flex justify-center">

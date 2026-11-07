@@ -10,6 +10,7 @@ export interface EmailOptions {
   subject: string;
   htmlContent: string;
   textContent?: string;
+  attachment?: { name: string; content: string }[];
 }
 
 /** Envoie un email via Brevo */
@@ -39,6 +40,7 @@ export const sendEmail = async (options: EmailOptions) => {
         subject: options.subject,
         htmlContent: options.htmlContent,
         textContent: options.textContent || options.htmlContent.replace(/<[^>]*>/g, ''),
+        ...(options.attachment?.length ? { attachment: options.attachment } : {}),
       }),
     });
 

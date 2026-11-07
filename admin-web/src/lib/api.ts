@@ -81,6 +81,12 @@ export const AdminService = {
   getQuotes: (params?: { status?: string; page?: number; pageSize?: number }) =>
     apiClient.get<Paginated<Quote>>('/admin/quotes', { params }),
 
+  getQuoteTemplates: () =>
+    apiClient.get<{ template_key: 'fixed' | 'detailed'; name: string; html_content: string; updated_at: string }[]>('/admin/quote-templates'),
+
+  updateQuoteTemplate: (key: 'fixed' | 'detailed', body: { name: string; html_content: string }) =>
+    apiClient.put(`/admin/quote-templates/${key}`, body),
+
   getEmployerRequests: (params?: { status?: string; page?: number; pageSize?: number }) =>
     apiClient.get<Paginated<EmployerRequest>>('/admin/employer-requests', { params }),
 
