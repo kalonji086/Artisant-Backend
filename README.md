@@ -54,6 +54,11 @@ dashboard.
 Appliquer les scripts de `supabase_migrations/` dans l'ordre numérique dans le
 SQL Editor du projet Supabase avant de déployer le code qui en dépend.
 `supabase_schema.sql` décrit le schéma principal.
+Avant de déployer le verrouillage des connexions et la vérification des identifiants
+d'inscription, appliquer aussi `supabase_migrations/037_auth_login_security.sql`
+dans le SQL Editor Supabase. Trois échecs de mot de passe verrouillent le compte
+pendant une heure; une nouvelle tentative pendant ce verrouillage porte le délai
+à cinq heures.
 
 ## Créer le compte administrateur principal
 

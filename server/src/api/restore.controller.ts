@@ -8,6 +8,7 @@ import {
 import type { RegistrationResponseJSON, AuthenticationResponseJSON } from '@simplewebauthn/server';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { firstRpcRow, formatLoginLockout } from '../lib/login-lockout';
 
 const ANDROID_PACKAGE = process.env.ANDROID_PACKAGE || 'com.artisants.app';
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
@@ -222,6 +223,22 @@ export const authenticateWithRestoreCredential = async (req: Request, res: Respo
     const { data: authUser } = await supabase.auth.admin.getUserById(row.user_id);
     const email = authUser?.user?.email;
     if (!email) return invalid();
+
+    const { data: lockoutData, error: lockoutError } = await supabase.rpc('get_auth_login_lockout', {
+      p_email: email,
+    });
+    if (lockoutError) throw new Error(`Vérification du verrouillage impossible: ${lockoutError.message}`);
+    const lockout = firstRpcRow(lockoutData);
+    if (lockout?.locked_until && Date.parse(lockout.locked_until) > Date.now()) {
+      const { data: retryData, error: retryError } = await supabase.rpc('record_auth_login_failure', {
+        p_email: email,
+      });
+      if (retryError) throw new Error(`Mise à jour du verrouillage impossible: ${retryError.message}`);
+      const retryState = firstRpcRow(retryData);
+      return res.status(423).json({
+        error: formatLoginLockout(retryState?.locked_until ?? lockout.locked_until),
+      });
+    }
 
     const { data: link, error: linkError } = await supabase.auth.admin.generateLink({ type: 'magiclink', email });
     if (linkError || !link?.properties?.hashed_token) throw new Error(linkError?.message || 'Lien indisponible');
