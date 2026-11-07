@@ -78,7 +78,12 @@ app.use(
           ...(supabaseOrigin ? [supabaseOrigin, supabaseOrigin.replace(/^http/, 'ws')] : []),
         ],
         // Tuiles de la carte admin (OpenStreetMap).
-        imgSrc: ["'self'", 'data:', 'https://tile.openstreetmap.org'],
+        imgSrc: [
+          "'self'",
+          'data:',
+          'https://tile.openstreetmap.org',
+          ...(supabaseOrigin ? [supabaseOrigin] : []),
+        ],
       },
     },
     // OpenStreetMap refuse (403) les tuiles sans Referer : on n'envoie que l'origine.

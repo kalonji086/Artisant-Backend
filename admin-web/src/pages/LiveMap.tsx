@@ -159,6 +159,7 @@ export default function LiveMap() {
     const channel = supabase
       .channel('admin-live-map')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_locations' }, refresh)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, refresh)
       .subscribe((status) => active && setLive(status === 'SUBSCRIBED'));
 
