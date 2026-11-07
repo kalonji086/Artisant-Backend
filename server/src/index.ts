@@ -12,6 +12,7 @@ import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
 import restoreRoutes from './api/restore.routes';
+import authRoutes from './api/auth.routes';
 import supportRequestRoutes from './api/support-requests.routes';
 import { getAssetLinks } from './api/restore.controller';
 import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
@@ -145,6 +146,7 @@ app.use(`${API_VERSION}/unsubscribe`, unsubscribeRouter);
 app.use(`${API_VERSION}/admin`, adminRoutes);
 app.use(`${API_VERSION}/webhooks`, webhookRoutes);
 app.use(`${API_VERSION}/auth/restore`, restoreRoutes);
+app.use(`${API_VERSION}/auth`, authRoutes);
 app.use(`${API_VERSION}/support-requests`, supportRequestRoutes);
 // Documents légaux publics pour l'application mobile (même contenu que /legal/*, modifiable depuis l'admin)
 app.get(`${API_VERSION}/legal/:slug`, (_req, res, next) => {
