@@ -100,7 +100,11 @@ export interface AdminStats {
   };
   quotesByStatus: { status: QuoteStatus; count: number }[];
   signupsByMonth: { month: string; count: number }[];
-  servicesByCategory: { category: string; count: number }[];
+  servicesByCategory: { categoryId: string; category: string; count: number }[];
+  artisansByService: { id: string; category: string; service: string; count: number }[];
+  serviceStatsUnavailable: boolean;
+  serviceCatalogAvailable: boolean;
+  serviceAssignmentsAvailable: boolean;
   recentUsers: Pick<Profile, 'id' | 'full_name' | 'role' | 'avatar_url' | 'created_at'>[];
   recentQuotes: Quote[];
 }

@@ -78,6 +78,44 @@ const isSchemaMismatch = (error: unknown) =>
     describeSupabaseError(error).code,
   );
 
+const fetchArtisanServiceRows = async (columns: string) => {
+  const rows: Array<{
+    artisan_id: string | null;
+    service_id?: string | null;
+    category_id?: string | null;
+  }> = [];
+  const pageSize = 1000;
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('artisan_services')
+      .select(columns)
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+
+    const pageData: unknown = data ?? [];
+    if (!Array.isArray(pageData)) {
+      throw new Error('La requête des associations artisan-service a renvoyé un format invalide.');
+    }
+    const page = pageData.map((item: unknown) => {
+      if (typeof item !== 'object' || item === null) {
+        throw new Error('Une association artisan-service a un format invalide.');
+      }
+      const row = item as Record<string, unknown>;
+      return {
+        artisan_id: typeof row.artisan_id === 'string' ? row.artisan_id : null,
+        service_id: typeof row.service_id === 'string' ? row.service_id : null,
+        category_id: typeof row.category_id === 'string' ? row.category_id : null,
+      };
+    });
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+    offset += pageSize;
+  }
+};
+
 /**
  * GET /api/v1/admin/stats
  * Statistiques agrégées du tableau de bord principal.
@@ -166,115 +204,115 @@ export const getAdminStats = async (_req: Request, res: Response) => {
     const categories = categoriesListRes.data ?? [];
     console.log(`[STATS] Categories count: ${categories.length}`);
 
-    let servicesByCategory: Array<{ category: string; count: number }> = [];
+    let servicesByCategory: Array<{ categoryId: string; category: string; count: number }> = [];
+    let artisansByService: Array<{
+      id: string;
+      category: string;
+      service: string;
+      count: number;
+    }> = [];
+    let serviceStatsUnavailable = false;
+    let serviceCatalogAvailable = true;
+    let serviceAssignmentsAvailable = true;
     try {
-      const serviceCounts = new Map<string, number>();
-
       const serviceCatalogResult = await supabase
         .from('services')
-        .select('id, category_id');
+        .select('id, name, category_id');
+      const categoryArtisans = new Map<string, Set<string>>();
+      const categoryNames = new Map<string, string>();
+      const serviceArtisans = new Map<string, Set<string>>();
+      const categoryName = (id: string | null) =>
+        id ? categoryNames.get(id) ?? 'Non classé' : 'Non classé';
+
+      for (const category of categories) {
+        const id = String(category.id);
+        categoryNames.set(id, category.name || 'Non classé');
+        categoryArtisans.set(id, new Set());
+      }
 
       if (!serviceCatalogResult.error) {
-        const categoryIds = new Set(categories.map((category) => String(category.id)));
-        const serviceIdsByCategory = new Map<string, string[]>();
-        const uncategorizedServiceIds: string[] = [];
+        const services = serviceCatalogResult.data ?? [];
+        const serviceById = new Map(services.map((service) => [String(service.id), service]));
+        let assignments: Awaited<ReturnType<typeof fetchArtisanServiceRows>>;
+        let assignmentsByService = true;
 
-        for (const service of serviceCatalogResult.data ?? []) {
-          const serviceId = String(service.id);
-          const categoryId = service.category_id === null ? null : String(service.category_id);
-          if (categoryId && categoryIds.has(categoryId)) {
-            const ids = serviceIdsByCategory.get(categoryId) ?? [];
-            ids.push(serviceId);
-            serviceIdsByCategory.set(categoryId, ids);
+        try {
+          assignments = await fetchArtisanServiceRows('artisan_id, service_id');
+        } catch (error) {
+          if (!isSchemaMismatch(error)) throw error;
+          assignmentsByService = false;
+          serviceAssignmentsAvailable = false;
+          assignments = await fetchArtisanServiceRows('artisan_id, category_id');
+        }
+
+        for (const assignment of assignments) {
+          if (!assignment.artisan_id) continue;
+
+          if (assignmentsByService) {
+            const service = assignment.service_id
+              ? serviceById.get(String(assignment.service_id))
+              : null;
+            if (!service) continue;
+
+            const serviceId = String(service.id);
+            const artisans = serviceArtisans.get(serviceId) ?? new Set<string>();
+            artisans.add(assignment.artisan_id);
+            serviceArtisans.set(serviceId, artisans);
+
+            const categoryId = service.category_id ? String(service.category_id) : null;
+            if (categoryId && categoryArtisans.has(categoryId)) {
+              categoryArtisans.get(categoryId)?.add(assignment.artisan_id);
+            } else {
+              const uncategorized = categoryArtisans.get('uncategorized') ?? new Set<string>();
+              uncategorized.add(assignment.artisan_id);
+              categoryArtisans.set('uncategorized', uncategorized);
+              categoryNames.set('uncategorized', 'Non classé');
+            }
           } else {
-            uncategorizedServiceIds.push(serviceId);
+            const categoryId = assignment.category_id ? String(assignment.category_id) : 'uncategorized';
+            const artisans = categoryArtisans.get(categoryId) ?? new Set<string>();
+            artisans.add(assignment.artisan_id);
+            categoryArtisans.set(categoryId, artisans);
+            if (categoryId === 'uncategorized') categoryNames.set(categoryId, 'Non classé');
           }
         }
 
-        const categoryServiceCounts = await Promise.all(categories.map(async (category) => {
-          const serviceIds = serviceIdsByCategory.get(String(category.id)) ?? [];
-          if (serviceIds.length === 0) return { category, count: 0 };
-
-          const result = await supabase
-            .from('artisan_services')
-            .select('id', { count: 'exact', head: true })
-            .in('service_id', serviceIds);
-          if (result.error) {
-            throw result.error;
-          }
-          return { category, count: result.count ?? 0 };
-        }));
-
-        for (const { category, count } of categoryServiceCounts) {
-          const name = category.name || 'Non classé';
-          serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + count);
-        }
-
-        if (uncategorizedServiceIds.length > 0) {
-          const result = await supabase
-            .from('artisan_services')
-            .select('id', { count: 'exact', head: true })
-            .in('service_id', uncategorizedServiceIds);
-          if (result.error) {
-            throw result.error;
-          }
-          if ((result.count ?? 0) > 0) {
-            serviceCounts.set(
-              'Non classé',
-              (serviceCounts.get('Non classé') ?? 0) + (result.count ?? 0),
-            );
-          }
+        if (assignmentsByService) {
+          artisansByService = services
+            .map((service) => ({
+              id: String(service.id),
+              category: categoryName(service.category_id ? String(service.category_id) : null),
+              service: service.name || 'Service sans nom',
+              count: serviceArtisans.get(String(service.id))?.size ?? 0,
+            }))
+            .sort((a, b) => a.category.localeCompare(b.category) || a.service.localeCompare(b.service));
         }
       } else if (isSchemaMismatch(serviceCatalogResult.error)) {
-        console.warn(
-          '[STATS] Service catalog table unavailable; using direct service categories.',
-          describeSupabaseError(serviceCatalogResult.error),
-        );
-
-        const directResults = await Promise.all([
-          ...categories.map((category) =>
-            supabase
-              .from('artisan_services')
-              .select('id', { count: 'exact', head: true })
-              .eq('category_id', category.id)
-          ),
-          supabase
-            .from('artisan_services')
-            .select('id', { count: 'exact', head: true })
-            .is('category_id', null),
-        ]);
-        const directError = directResults.find((result) => result.error)?.error;
-        if (directError) {
-          console.error('[STATS] Service count failed:', describeSupabaseError(directError));
-          throw directError;
-        }
-
-        categories.forEach((category, index) => {
-          const name = category.name || 'Non classé';
-          serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + (directResults[index].count ?? 0));
-        });
-        const uncategorizedCount = directResults[categories.length].count ?? 0;
-        if (uncategorizedCount > 0) {
-          serviceCounts.set(
-            'Non classé',
-            (serviceCounts.get('Non classé') ?? 0) + uncategorizedCount,
-          );
+        serviceCatalogAvailable = false;
+        serviceAssignmentsAvailable = false;
+        const assignments = await fetchArtisanServiceRows('artisan_id, category_id');
+        for (const assignment of assignments) {
+          if (!assignment.artisan_id) continue;
+          const categoryId = assignment.category_id ? String(assignment.category_id) : 'uncategorized';
+          const artisans = categoryArtisans.get(categoryId) ?? new Set<string>();
+          artisans.add(assignment.artisan_id);
+          categoryArtisans.set(categoryId, artisans);
+          if (categoryId === 'uncategorized') categoryNames.set(categoryId, 'Non classé');
         }
       } else {
-        console.error(
-          '[STATS] Service catalog query failed:',
-          describeSupabaseError(serviceCatalogResult.error),
-        );
         throw serviceCatalogResult.error;
       }
 
-      servicesByCategory = Array.from(serviceCounts.entries())
-        .map(([category, count]) => ({ category, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 8);
+      servicesByCategory = Array.from(categoryArtisans.entries())
+        .map(([categoryId, artisans]) => ({
+          categoryId,
+          category: categoryNames.get(categoryId) ?? 'Non classé',
+          count: artisans.size,
+        }))
+        .sort((a, b) => a.category.localeCompare(b.category));
     } catch (err) {
-      console.error('[STATS] Skipping service count due to error:', describeSupabaseError(err));
-      // Continue without service counts - artisan_services may not be initialized
+      serviceStatsUnavailable = true;
+      logger.error('Impossible de charger les statistiques des services', describeSupabaseError(err));
     }
 
     // Devis récents avec noms résolus
@@ -303,6 +341,10 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       quotesByStatus,
       signupsByMonth,
       servicesByCategory,
+      artisansByService,
+      serviceStatsUnavailable,
+      serviceCatalogAvailable,
+      serviceAssignmentsAvailable,
       recentUsers: recentProfilesRes.data ?? [],
       recentQuotes,
     });

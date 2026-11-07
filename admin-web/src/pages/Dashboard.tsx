@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Bar,
-  BarChart,
   Area,
   AreaChart,
   Cell,
@@ -46,6 +44,17 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'Rejetés',
   completed: 'Terminés',
 };
+
+const SERVICE_CHART_COLORS = [
+  '#10b981',
+  '#0ea5e9',
+  '#8b5cf6',
+  '#f59e0b',
+  '#f43f5e',
+  '#14b8a6',
+  '#6366f1',
+  '#f97316',
+];
 
 interface DecisionTarget {
   request: EmployerRequest;
@@ -156,6 +165,12 @@ export default function Dashboard() {
     const { totals } = stats;
     const quotesByStatusTotal = stats.quotesByStatus.reduce((sum, s) => sum + s.count, 0);
     const quoteStatusDifference = totals.quotes - quotesByStatusTotal;
+    const categoriesWithArtisans = stats.servicesByCategory
+      .map((entry, colorIndex) => ({ ...entry, colorIndex }))
+      .filter((entry) => entry.count > 0);
+    const servicesWithArtisans = stats.artisansByService
+      .map((entry, colorIndex) => ({ ...entry, colorIndex, label: `${entry.category} · ${entry.service}` }))
+      .filter((entry) => entry.count > 0);
 
     return (
       <div className="space-y-6">
@@ -345,39 +360,115 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm xl:col-span-3">
-            <h3 className="text-sm font-semibold text-ink">Services par catégorie</h3>
-            {stats.servicesByCategory.length === 0 ? (
-              <div className="flex h-64 items-center justify-center text-sm text-muted">
-                Aucun service déclaré
-              </div>
-            ) : (
-              <div className="mt-3 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={stats.servicesByCategory}
-                    layout="vertical"
-                    margin={{ top: 4, right: 16, left: 4, bottom: 4 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eef2f6" />
-                    <XAxis type="number" hide allowDecimals={false} />
-                    <YAxis
-                      type="category"
-                      dataKey="category"
-                      tick={{ fontSize: 12, fill: '#60646c' }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={110}
-                    />
-                    <Tooltip
-                      cursor={{ fill: '#f8fafc' }}
-                      formatter={(value) => [formatNumber(Number(value)), 'Services']}
-                    />
-                    <Bar dataKey="count" fill="#10b981" radius={[0, 6, 6, 0]} maxBarSize={18} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+          <div className="grid gap-4 xl:col-span-3 xl:grid-cols-2">
+            <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-ink">Artisans par catégorie</h3>
+              <p className="mt-1 text-xs text-muted">Artisans distincts associés à chaque catégorie</p>
+              {stats.serviceStatsUnavailable ? (
+                <div role="alert" className="flex h-56 items-center justify-center text-center text-sm text-rose-700">
+                  Les statistiques des catégories sont indisponibles.
+                </div>
+              ) : (
+                <>
+                  {categoriesWithArtisans.length === 0 ? (
+                    <div className="flex h-56 items-center justify-center text-sm text-muted">
+                      Aucune association artisan-catégorie enregistrée
+                    </div>
+                  ) : (
+                    <div className="mt-2 h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={categoriesWithArtisans}
+                            dataKey="count"
+                            nameKey="category"
+                            innerRadius={54}
+                            outerRadius={88}
+                            paddingAngle={2}
+                            stroke="none"
+                          >
+                            {categoriesWithArtisans.map((entry) => (
+                              <Cell key={entry.categoryId} fill={SERVICE_CHART_COLORS[entry.colorIndex % SERVICE_CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => [formatNumber(Number(value)), 'Artisans']} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  <ul className="mt-2 max-h-52 space-y-1.5 overflow-y-auto">
+                    {stats.servicesByCategory.map((entry, index) => (
+                      <li key={entry.categoryId} className="flex items-center gap-2 text-xs text-muted">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: SERVICE_CHART_COLORS[index % SERVICE_CHART_COLORS.length] }}
+                        />
+                        <span className="truncate">{entry.category}</span>
+                        <span className="ml-auto font-semibold text-ink">{formatNumber(entry.count)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+
+            <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-ink">Artisans par service</h3>
+              <p className="mt-1 text-xs text-muted">Chaque service est indiqué avec sa catégorie</p>
+              {stats.serviceStatsUnavailable ? (
+                <div role="alert" className="flex h-56 items-center justify-center text-center text-sm text-rose-700">
+                  Les statistiques des services sont indisponibles.
+                </div>
+              ) : !stats.serviceCatalogAvailable || !stats.serviceAssignmentsAvailable ? (
+                <div className="flex h-56 items-center justify-center text-center text-sm text-muted">
+                  La répartition par service n’est pas disponible avec les données actuelles.
+                </div>
+              ) : (
+                <>
+                  {servicesWithArtisans.length === 0 ? (
+                    <div className="flex h-56 items-center justify-center text-center text-sm text-muted">
+                      Aucun artisan associé à un service
+                    </div>
+                  ) : (
+                    <div className="mt-2 h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={servicesWithArtisans}
+                            dataKey="count"
+                            nameKey="label"
+                            innerRadius={54}
+                            outerRadius={88}
+                            paddingAngle={2}
+                            stroke="none"
+                          >
+                            {servicesWithArtisans.map((entry) => (
+                              <Cell key={entry.id} fill={SERVICE_CHART_COLORS[entry.colorIndex % SERVICE_CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => [formatNumber(Number(value)), 'Artisans']}
+                            labelFormatter={(label) => String(label)}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  <ul className="mt-2 max-h-52 space-y-1.5 overflow-y-auto">
+                    {stats.artisansByService.map((entry, index) => (
+                      <li key={entry.id} className="flex items-center gap-2 text-xs text-muted">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: SERVICE_CHART_COLORS[index % SERVICE_CHART_COLORS.length] }}
+                        />
+                        <span className="truncate">{entry.category} · {entry.service}</span>
+                        <span className="ml-auto font-semibold text-ink">{formatNumber(entry.count)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
           </div>
         </div>
         {/* Activité récente */}
