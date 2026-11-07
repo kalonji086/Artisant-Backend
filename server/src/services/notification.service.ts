@@ -1,6 +1,7 @@
 import { Expo, ExpoPushMessage } from 'expo-server-sdk';
 
 const expo = new Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN });
+const ANDROID_NOTIFICATION_CHANNEL_ID = 'app-notifications';
 
 type PushNotificationData = Record<string, string | number | boolean | undefined> | undefined;
 
@@ -23,7 +24,7 @@ export const sendPushNotification = async (
     body,
     data,
     priority: 'high',
-    channelId: 'default',
+    channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
     ...(badge === undefined ? {} : { badge }),
   }];
 
