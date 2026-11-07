@@ -6,6 +6,7 @@ import { buildQuoteRequestEmail, sendEmail } from '../lib/email';
 import { z } from 'zod';
 import sanitizeHtml from 'sanitize-html';
 import { renderQuotePdf, QuoteDocumentItem } from '../lib/quote-document';
+import { getBranding } from '../lib/branding';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
@@ -393,6 +394,8 @@ export const sendQuoteProposal = async (req: Request, res: Response) => {
     const taxAmount = Number(quote.proposal_tax_amount || 0);
     const total = Number(quote.proposal_total || 0);
     const quoteNumber = quote.id.slice(0, 8).toUpperCase();
+    const branding = await getBranding();
+    const appUrl = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || 'https://www.artisants.com').replace(/\/+$/, '');
     const documentData = {
       quoteNumber,
       clientName,
@@ -408,6 +411,12 @@ export const sendQuoteProposal = async (req: Request, res: Response) => {
       total,
       validUntil: quote.proposal_valid_until,
       terms: quote.proposal_terms || '',
+      branding: {
+        platformName: branding.platformName,
+        socials: branding.socials,
+        privacyUrl: `${appUrl}/legal/privacy`,
+        termsUrl: `${appUrl}/legal/terms`,
+      },
     };
 
     const sanitizedTemplate = sanitizeHtml(templateResult.data.html_content, quoteTemplateSanitizeOptions);
