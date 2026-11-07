@@ -5,11 +5,11 @@ import { supabase } from '../lib/supabase';
 import { handlePushEvent } from '../services/push-events.service';
 
 export const handleSupabaseWebhook = async (req: Request, res: Response) => {
-  const { record, type, table, old_record } = req.body;
+  const { record, type, table } = req.body;
 
-  if (table === 'chat_messages' || table === 'quotes') {
-    await handlePushEvent(table, type, record ?? {}, old_record ?? null);
-    res.status(200).json({ received: true });
+  if (table === 'app_notifications' && type === 'INSERT') {
+    const sent = await handlePushEvent(table, type, record ?? {});
+    res.status(sent ? 200 : 503).json({ received: sent });
     return;
   }
 

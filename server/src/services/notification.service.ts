@@ -8,7 +8,8 @@ export const sendPushNotification = async (
   expoPushToken: string,
   title: string,
   body: string,
-  data?: PushNotificationData
+  data?: PushNotificationData,
+  badge?: number
 ) => {
   if (!Expo.isExpoPushToken(expoPushToken)) {
     console.error(`Token Expo invalide: ${expoPushToken}`);
@@ -21,14 +22,22 @@ export const sendPushNotification = async (
     title,
     body,
     data,
+    priority: 'high',
+    channelId: 'default',
+    ...(badge === undefined ? {} : { badge }),
   }];
 
   try {
     const chunks = expo.chunkPushNotifications(messages);
     for (const chunk of chunks) {
-      await expo.sendPushNotificationsAsync(chunk);
+      const tickets = await expo.sendPushNotificationsAsync(chunk);
+      const failures = tickets.filter((ticket) => ticket.status === 'error');
+      if (failures.length > 0) {
+        throw new Error(failures.map((ticket) => ticket.message).join('; '));
+      }
     }
   } catch (error) {
     console.error('Erreur lors de l\'envoi de la notification push:', error);
+    throw error;
   }
 };

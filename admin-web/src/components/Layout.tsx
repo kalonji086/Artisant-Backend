@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { useAdminPresence, useLiveCounts, useSessionDuration } from '../lib/presence';
 import { initials } from '../utils/format';
+import AdminActivityBell from './AdminActivityBell';
 import {
   BriefcaseIcon,
   ChatIcon,
@@ -256,6 +257,7 @@ export default function Layout() {
           <p className="hidden text-sm text-muted sm:block">Plateforme ARTISANTS — espace administrateur</p>
 
           <div className="ml-auto flex items-center gap-3">
+            <AdminActivityBell />
             <a
               href={PREMIUM_DASHBOARD_URL}
               target="_blank"
