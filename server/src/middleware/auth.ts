@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 
-type AuthenticatedRequest = Request & { user?: { id: string; user_metadata?: any } };
+type AuthenticatedRequest = Request & { user?: { id: string } };
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
@@ -25,7 +25,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return res.status(401).json({ error: 'Session invalide ou expirée' });
     }
 
-    (req as AuthenticatedRequest).user = { id: user.id, user_metadata: user.user_metadata };
+    (req as AuthenticatedRequest).user = { id: user.id };
     next();
   } catch (err) {
     logger.error('Erreur lors de la validation du token', { error: err instanceof Error ? err.message : String(err) });
@@ -45,7 +45,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    let { data: profile, error } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('role, full_name')
       .eq('id', user.id)
@@ -64,41 +64,11 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
     }
 
     if (!profile) {
-      // Compte authentifié (auth.users) sans ligne `profiles` correspondante.
-      // Un trigger DB (on_auth_user_created, voir supabase_migrations/008_*)
-      // crée désormais ce profil automatiquement à l'inscription ; ce cas ne
-      // devrait donc plus survenir que pour des comptes créés avant son
-      // déploiement. On s'auto-répare ici pour ne pas rester bloqué.
-      logger.warn('Profil introuvable pour utilisateur authentifié, tentative de réparation automatique', { userId: user.id });
-
-      // Vérifier le rôle dans les métadonnées de l'utilisateur auth
-      const requestedRole = user.user_metadata?.role || 'client';
-      const allowedRoles = ['admin', 'artisan', 'client'];
-      const roleToAssign = allowedRoles.includes(requestedRole) ? requestedRole : 'client';
-
-      const { data: created, error: createError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          role: roleToAssign,
-          full_name: user.user_metadata?.full_name || ''
-        })
-        .select('role, full_name')
-        .maybeSingle();
-
-      if (createError || !created) {
-        logger.error('Échec de la réparation automatique du profil', {
-          userId: user.id,
-          errorMessage: createError?.message,
-        });
-        return res.status(403).json({
-          error: 'Profil administrateur introuvable',
-          details: 'Veuillez contacter un administrateur pour corriger votre compte'
-        });
-      }
-
-      logger.info('Profil recréé automatiquement pour utilisateur authentifié', { userId: user.id, role: roleToAssign });
-      profile = created;
+      logger.warn('Profil introuvable pour utilisateur authentifié', { userId: user.id });
+      return res.status(403).json({
+        error: 'Profil administrateur introuvable',
+        details: 'Veuillez contacter un administrateur pour corriger votre compte'
+      });
     }
 
     if (profile.role !== 'admin') {

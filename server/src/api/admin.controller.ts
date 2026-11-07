@@ -797,9 +797,6 @@ export const deleteUserAccount = async (req: Request, res: Response) => {
     const { data: details } = await supabase.from('profile_details').select('email').eq('user_id', id).maybeSingle();
     const email = (details?.email as string | undefined) ?? null;
 
-    const { error: profileError } = await supabase.from('profiles').delete().eq('id', id);
-    if (profileError) throw profileError;
-
     const { error: authError } = await supabase.auth.admin.deleteUser(id);
     if (authError) throw authError;
 
