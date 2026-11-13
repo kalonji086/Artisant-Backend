@@ -58,6 +58,10 @@ export const loginWithPassword = async (req: Request, res: Response, next: NextF
       if (error && error.code === 'email_not_confirmed') {
         return res.status(401).json({ error: INVALID_CREDENTIALS });
       }
+      if (error?.status === 429) {
+        logger.warn('Limite de tentatives Supabase Auth atteinte', { code: error.code });
+        return res.status(429).json({ error: 'Trop de tentatives de connexion. Réessayez dans quelques minutes.' });
+      }
       if (error && error.status !== 400 && error.status !== 401 && error.status !== 403) {
         logger.warn('Service de connexion indisponible ou compte non confirmé', {
           status: error.status,
