@@ -147,8 +147,8 @@ export const importPortfolioPresentation = async (req: Request, res: Response) =
       });
     }
     logger.error('Import du PowerPoint impossible', { projectId, error: errorMessage(error) });
-    if (errorMessage(error).includes('PUBLICATION_QUOTA_REACHED')) {
-      return res.status(402).json({ error: 'Quota mensuel atteint. Choisissez une offre pour publier davantage.' });
+    if (errorMessage(error).includes('PORTFOLIO_ALREADY_CREATED')) {
+      return res.status(409).json({ error: 'Un seul portfolio peut être publié par artisan.' });
     }
     return res.status(500).json({ error: 'Les diapositives n’ont pas pu être importées.' });
   }
