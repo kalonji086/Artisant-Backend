@@ -60,6 +60,29 @@ dans le SQL Editor Supabase. Trois échecs de mot de passe verrouillent le compt
 pendant une heure; une nouvelle tentative pendant ce verrouillage porte le délai
 à cinq heures.
 
+## Abonnements artisan
+
+Appliquer les migrations `038_artisan_portfolio_feed.sql` puis
+`039_artisan_subscriptions.sql` dans le SQL Editor Supabase. Dans Google Play
+Console, créer trois abonnements mensuels actifs, dans le même groupe, avec les
+identifiants `artisants_pro_monthly`, `artisants_premium_monthly` et
+`artisants_enterprise_monthly` (19, 30 et 100 $ US/mois). L’offre gratuite est
+gérée par la base de données : 1 publication par mois; Pro permet 10 publications,
+Premium et Entreprise sont illimités. Entreprise inclut le support 24/7.
+
+Activer l’API Google Play Android Developer, donner au compte de service l’accès
+à l’application, puis configurer `GOOGLE_PLAY_PACKAGE_NAME`,
+`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `GOOGLE_PLAY_RTDN_AUDIENCE` et
+`GOOGLE_PLAY_RTDN_EMAIL` dans l’environnement du serveur (voir
+`server/.env.example`). Configurer les notifications RTDN de Google Play vers
+`/api/v1/subscriptions/google-play/notifications` avec un push Pub/Sub authentifié
+OIDC et la même audience et adresse de service. Tester les achats avec une
+version publiée sur une piste de test et un compte testeur Google Play.
+
+L’application utilise `expo-iap`; les achats ne fonctionnent pas dans Expo Go.
+Après l’ajout du module natif, reconstruire et redistribuer l’application Android
+avec EAS avant de tester les achats.
+
 ## Créer le compte administrateur principal
 
 Exécuter d'abord `supabase_migrations/001_admin_role.sql` dans le SQL Editor

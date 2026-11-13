@@ -8,6 +8,8 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 
 import artisanRoutes from './api/artisan.routes';
+import portfolioRoutes from './api/portfolio.routes';
+import subscriptionRoutes from './api/subscriptions.routes';
 import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
@@ -125,6 +127,22 @@ const quoteLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const portfolioLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'Trop de traitements de présentation, veuillez réessayer plus tard.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const subscriptionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Trop de vérifications d’abonnement, veuillez réessayer plus tard.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // 1000 requêtes par fenêtre (compatible IP partagées Render/proxy + dev mobile)
@@ -145,6 +163,8 @@ app.use(generalLimiter);
 // 5. Routes versionnées (/api/v1/...)
 // ============================================
 app.use(`${API_VERSION}/artisans`, authLimiter, artisanRoutes);
+app.use(`${API_VERSION}/portfolio`, portfolioLimiter, portfolioRoutes);
+app.use(`${API_VERSION}/subscriptions`, subscriptionLimiter, subscriptionRoutes);
 app.use(`${API_VERSION}/quotes`, quoteLimiter, quoteRoutes);
 app.use(`${API_VERSION}/admin/marketing`, marketingRouter);
 app.use(`${API_VERSION}/unsubscribe`, unsubscribeRouter);
