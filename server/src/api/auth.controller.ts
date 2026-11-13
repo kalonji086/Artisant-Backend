@@ -91,7 +91,6 @@ export const loginWithPassword = async (req: Request, res: Response, next: NextF
     const { error: resetError } = await supabase.rpc('reset_auth_login_lockout', { p_email: email });
     if (resetError) {
       logger.error('Réinitialisation du verrouillage de connexion impossible', { error: resetError.message });
-      return res.status(503).json({ error: 'Connexion temporairement indisponible. Réessayez.' });
     }
 
     res.set('Cache-Control', 'no-store');
