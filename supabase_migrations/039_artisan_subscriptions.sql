@@ -92,6 +92,7 @@ grant select on public.artisan_subscription_plans to anon, authenticated;
 grant all on public.artisan_subscription_plans to service_role;
 
 drop policy if exists "Réalisations visibles par tous" on public.artisan_projects;
+drop policy if exists "Réalisations publiées visibles par tous" on public.artisan_projects;
 create policy "Réalisations publiées visibles par tous"
   on public.artisan_projects for select to anon, authenticated
   using (status = 'published' or auth.uid() = artisan_id);
@@ -103,6 +104,7 @@ grant select, delete on public.artisan_projects to authenticated;
 grant all on public.artisan_projects to service_role;
 
 drop policy if exists "Photos des réalisations visibles par tous" on public.artisan_project_media;
+drop policy if exists "Photos des réalisations publiées visibles par tous" on public.artisan_project_media;
 create policy "Photos des réalisations publiées visibles par tous"
   on public.artisan_project_media for select to anon, authenticated
   using (
@@ -114,6 +116,7 @@ create policy "Photos des réalisations publiées visibles par tous"
   );
 
 drop policy if exists "Commentaires visibles par tous" on public.artisan_project_comments;
+drop policy if exists "Commentaires des réalisations publiées visibles par tous" on public.artisan_project_comments;
 create policy "Commentaires des réalisations publiées visibles par tous"
   on public.artisan_project_comments for select to anon, authenticated
   using (
