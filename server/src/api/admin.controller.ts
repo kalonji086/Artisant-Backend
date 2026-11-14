@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
-import { logActivity } from '../lib/activity';
-import { updateEmployerRequestSchema, updateUserSchema, reasonSchema } from '../lib/validation';
+import { updateEmployerRequestSchema } from '../lib/validation';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 
-const QUOTE_STATUSES = ['unassigned', 'assigned', 'pending', 'accepted', 'in_progress', 'rejected', 'completed'] as const;
+const QUOTE_STATUSES = ['unassigned', 'assigned', 'pending', 'accepted', 'rejected', 'completed'] as const;
 const PROFILE_ROLES = ['client', 'artisan'] as const;
 const EMPLOYER_REQUEST_STATUSES = ['pending', 'approved', 'rejected'] as const;
 
@@ -50,70 +49,6 @@ const getMonthRange = (key: string) => {
     from: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
     to: new Date(Date.UTC(year, month, 1)).toISOString(),
   };
-};
-
-const describeSupabaseError = (error: unknown) => {
-  const details = error && typeof error === 'object' ? error : {};
-  const code = 'code' in details && typeof details.code === 'string' ? details.code : 'unknown';
-  const message = 'message' in details && typeof details.message === 'string'
-    ? details.message
-    : error instanceof Error
-      ? error.message
-      : String(error);
-  const errorDetails = 'details' in details && typeof details.details === 'string'
-    ? details.details
-    : undefined;
-  const hint = 'hint' in details && typeof details.hint === 'string' ? details.hint : undefined;
-
-  return {
-    code,
-    message: message || 'No message provided',
-    details: errorDetails,
-    hint,
-  };
-};
-
-const isSchemaMismatch = (error: unknown) =>
-  ['PGRST200', 'PGRST204', 'PGRST205', '42703', '42P01'].includes(
-    describeSupabaseError(error).code,
-  );
-
-const fetchArtisanServiceRows = async (columns: string) => {
-  const rows: Array<{
-    artisan_id: string | null;
-    service_id?: string | null;
-    category_id?: string | null;
-  }> = [];
-  const pageSize = 1000;
-  let offset = 0;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('artisan_services')
-      .select(columns)
-      .order('id', { ascending: true })
-      .range(offset, offset + pageSize - 1);
-    if (error) throw error;
-
-    const pageData: unknown = data ?? [];
-    if (!Array.isArray(pageData)) {
-      throw new Error('La requête des associations artisan-service a renvoyé un format invalide.');
-    }
-    const page = pageData.map((item: unknown) => {
-      if (typeof item !== 'object' || item === null) {
-        throw new Error('Une association artisan-service a un format invalide.');
-      }
-      const row = item as Record<string, unknown>;
-      return {
-        artisan_id: typeof row.artisan_id === 'string' ? row.artisan_id : null,
-        service_id: typeof row.service_id === 'string' ? row.service_id : null,
-        category_id: typeof row.category_id === 'string' ? row.category_id : null,
-      };
-    });
-    rows.push(...page);
-    if (page.length < pageSize) return rows;
-    offset += pageSize;
-  }
 };
 
 /**
@@ -204,115 +139,50 @@ export const getAdminStats = async (_req: Request, res: Response) => {
     const categories = categoriesListRes.data ?? [];
     console.log(`[STATS] Categories count: ${categories.length}`);
 
-    let servicesByCategory: Array<{ categoryId: string; category: string; count: number }> = [];
-    let artisansByService: Array<{
-      id: string;
-      category: string;
-      service: string;
-      count: number;
-    }> = [];
-    let serviceStatsUnavailable = false;
-    let serviceCatalogAvailable = true;
-    let serviceAssignmentsAvailable = true;
+    let servicesByCategory: Array<{ category: string; count: number }> = [];
     try {
-      const serviceCatalogResult = await supabase
-        .from('services')
-        .select('id, name, category_id');
-      const categoryArtisans = new Map<string, Set<string>>();
-      const categoryNames = new Map<string, string>();
-      const serviceArtisans = new Map<string, Set<string>>();
-      const categoryName = (id: string | null) =>
-        id ? categoryNames.get(id) ?? 'Non classé' : 'Non classé';
+      const serviceCountResults = await Promise.all([
+        ...categories.map((category) => {
+          console.log(`[STATS] Service count for category: ${category.id}`);
+          return supabase
+            .from('artisan_services')
+            .select('category_id', { count: 'exact', head: true })
+            .eq('category_id', category.id);
+        }),
+        (() => {
+          console.log('[STATS] Service count uncategorized');
+          return supabase
+            .from('artisan_services')
+            .select('category_id', { count: 'exact', head: true })
+            .is('category_id', null);
+        })(),
+      ]);
 
-      for (const category of categories) {
-        const id = String(category.id);
-        categoryNames.set(id, category.name || 'Non classé');
-        categoryArtisans.set(id, new Set());
+      console.log('[STATS] Service count queries OK');
+
+      const serviceError = serviceCountResults.find((result) => result.error);
+      if (serviceError?.error) {
+        console.error('[STATS] Service count failed:', serviceError.error);
+        throw serviceError.error;
       }
 
-      if (!serviceCatalogResult.error) {
-        const services = serviceCatalogResult.data ?? [];
-        const serviceById = new Map(services.map((service) => [String(service.id), service]));
-        let assignments: Awaited<ReturnType<typeof fetchArtisanServiceRows>>;
-        let assignmentsByService = true;
-
-        try {
-          assignments = await fetchArtisanServiceRows('artisan_id, service_id');
-        } catch (error) {
-          if (!isSchemaMismatch(error)) throw error;
-          assignmentsByService = false;
-          serviceAssignmentsAvailable = false;
-          assignments = await fetchArtisanServiceRows('artisan_id, category_id');
-        }
-
-        for (const assignment of assignments) {
-          if (!assignment.artisan_id) continue;
-
-          if (assignmentsByService) {
-            const service = assignment.service_id
-              ? serviceById.get(String(assignment.service_id))
-              : null;
-            if (!service) continue;
-
-            const serviceId = String(service.id);
-            const artisans = serviceArtisans.get(serviceId) ?? new Set<string>();
-            artisans.add(assignment.artisan_id);
-            serviceArtisans.set(serviceId, artisans);
-
-            const categoryId = service.category_id ? String(service.category_id) : null;
-            if (categoryId && categoryArtisans.has(categoryId)) {
-              categoryArtisans.get(categoryId)?.add(assignment.artisan_id);
-            } else {
-              const uncategorized = categoryArtisans.get('uncategorized') ?? new Set<string>();
-              uncategorized.add(assignment.artisan_id);
-              categoryArtisans.set('uncategorized', uncategorized);
-              categoryNames.set('uncategorized', 'Non classé');
-            }
-          } else {
-            const categoryId = assignment.category_id ? String(assignment.category_id) : 'uncategorized';
-            const artisans = categoryArtisans.get(categoryId) ?? new Set<string>();
-            artisans.add(assignment.artisan_id);
-            categoryArtisans.set(categoryId, artisans);
-            if (categoryId === 'uncategorized') categoryNames.set(categoryId, 'Non classé');
-          }
-        }
-
-        if (assignmentsByService) {
-          artisansByService = services
-            .map((service) => ({
-              id: String(service.id),
-              category: categoryName(service.category_id ? String(service.category_id) : null),
-              service: service.name || 'Service sans nom',
-              count: serviceArtisans.get(String(service.id))?.size ?? 0,
-            }))
-            .sort((a, b) => a.category.localeCompare(b.category) || a.service.localeCompare(b.service));
-        }
-      } else if (isSchemaMismatch(serviceCatalogResult.error)) {
-        serviceCatalogAvailable = false;
-        serviceAssignmentsAvailable = false;
-        const assignments = await fetchArtisanServiceRows('artisan_id, category_id');
-        for (const assignment of assignments) {
-          if (!assignment.artisan_id) continue;
-          const categoryId = assignment.category_id ? String(assignment.category_id) : 'uncategorized';
-          const artisans = categoryArtisans.get(categoryId) ?? new Set<string>();
-          artisans.add(assignment.artisan_id);
-          categoryArtisans.set(categoryId, artisans);
-          if (categoryId === 'uncategorized') categoryNames.set(categoryId, 'Non classé');
-        }
-      } else {
-        throw serviceCatalogResult.error;
+      const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
+      const serviceCounts = new Map<string, number>();
+      categories.forEach((category, index) => {
+        const name = categoryNames.get(category.id) || 'Non classé';
+        serviceCounts.set(name, (serviceCounts.get(name) ?? 0) + (serviceCountResults[index].count ?? 0));
+      });
+      const uncategorizedCount = serviceCountResults[categories.length].count ?? 0;
+      if (uncategorizedCount > 0) {
+        serviceCounts.set('Non classé', (serviceCounts.get('Non classé') ?? 0) + uncategorizedCount);
       }
-
-      servicesByCategory = Array.from(categoryArtisans.entries())
-        .map(([categoryId, artisans]) => ({
-          categoryId,
-          category: categoryNames.get(categoryId) ?? 'Non classé',
-          count: artisans.size,
-        }))
-        .sort((a, b) => a.category.localeCompare(b.category));
+      servicesByCategory = Array.from(serviceCounts.entries())
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
     } catch (err) {
-      serviceStatsUnavailable = true;
-      logger.error('Impossible de charger les statistiques des services', describeSupabaseError(err));
+      console.error('[STATS] Skipping service count due to error:', err);
+      // Continue without service counts - artisan_services may not be initialized
     }
 
     // Devis récents avec noms résolus
@@ -341,10 +211,6 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       quotesByStatus,
       signupsByMonth,
       servicesByCategory,
-      artisansByService,
-      serviceStatsUnavailable,
-      serviceCatalogAvailable,
-      serviceAssignmentsAvailable,
       recentUsers: recentProfilesRes.data ?? [],
       recentQuotes,
     });
@@ -387,7 +253,7 @@ export const getUsers = async (req: Request, res: Response) => {
   try {
     let query = supabase
       .from('profiles')
-      .select('id, full_name, phone, role, avatar_url, is_available, rating, address, city, profession, description, created_at, is_suspended, suspended_at, suspension_reason', {
+      .select('id, full_name, phone, role, avatar_url, is_available, rating, address, city, profession, description, created_at', {
         count: 'exact',
       });
 
@@ -578,14 +444,6 @@ export const updateEmployerRequestStatus = async (req: Request, res: Response) =
 
     if (error) throw error;
 
-    await logActivity({
-      actorId: admin?.id,
-      action: `employer_request.${status}`,
-      entityType: 'employer_request',
-      entityId: id,
-      metadata: { company_name: existing.company_name },
-    });
-
     // À l'approbation : créer (ou rafraîchir) le profil employeur actif
     if (status === 'approved' && existing.user_id) {
       const { error: upsertError } = await supabase.from('employer_profiles').upsert(
@@ -617,199 +475,6 @@ export const updateEmployerRequestStatus = async (req: Request, res: Response) =
       ? err.message
       : 'Erreur inconnue lors de la mise à jour de la demande';
     res.status(500).json({ error: message });
-  }
-};
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// Durée de bannissement Supabase effective « indéfiniment » (≈ 100 ans)
-const BAN_FOREVER = '876000h';
-
-const errorMessageOf = (err: unknown, fallback: string): string =>
-  err instanceof Error
-    ? err.message
-    : typeof err === 'object' && err !== null && 'message' in err && typeof err.message === 'string'
-      ? err.message
-      : fallback;
-
-/** Charge un utilisateur géré par l'admin. Refuse les actions sur soi-même et sur un autre admin. */
-const loadManagedUser = async (
-  adminId: string | undefined,
-  id: string,
-  { allowSelf = false }: { allowSelf?: boolean } = {}
-): Promise<{ status: number; error?: string; profile?: Record<string, unknown> }> => {
-  if (!UUID_RE.test(id)) return { status: 400, error: 'Identifiant utilisateur invalide' };
-  if (!allowSelf && id === adminId) return { status: 400, error: 'Action impossible sur votre propre compte' };
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, role, full_name, is_suspended')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) return { status: 404, error: 'Utilisateur non trouvé' };
-  if (data.role === 'admin') return { status: 403, error: 'Les comptes administrateurs ne peuvent pas être modifiés ici' };
-  return { status: 200, profile: data };
-};
-
-/**
- * PATCH /api/v1/admin/users/:id
- * Modifie les informations d'un profil (et le rôle client/artisan). Motif obligatoire.
- */
-export const updateUser = async (req: Request, res: Response) => {
-  const admin = (req as AuthenticatedRequest).user;
-  const { id } = req.params;
-
-  const parsed = updateUserSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({
-      error: 'Données de requête invalides',
-      details: parsed.error.errors.map((e) => ({ field: e.path.join('.'), message: e.message })),
-    });
-  }
-
-  const { reason, ...fields } = parsed.data;
-  const changes = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
-  if (Object.keys(changes).length === 0) {
-    return res.status(400).json({ error: 'Aucune modification fournie' });
-  }
-
-  try {
-    const check = await loadManagedUser(admin?.id, id);
-    if (check.error) return res.status(check.status).json({ error: check.error });
-    const before = check.profile!;
-
-    if (changes.role !== undefined && id === admin?.id) {
-      return res.status(400).json({ error: 'Vous ne pouvez pas changer votre propre rôle' });
-    }
-
-    // Le rôle est protégé par le trigger prevent_role_change : la clé service role est autorisée.
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(changes)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-
-    await logActivity({
-      actorId: admin?.id,
-      action: changes.role !== undefined && changes.role !== before.role ? 'user.role_changed' : 'user.updated',
-      entityType: 'user',
-      entityId: id,
-      metadata: {
-        reason,
-        fields: Object.keys(changes),
-        ...(changes.role !== undefined ? { role_from: before.role, role_to: changes.role } : {}),
-      },
-    });
-
-    res.json(data);
-  } catch (err: unknown) {
-    res.status(500).json({ error: errorMessageOf(err, 'Erreur lors de la mise à jour de l\'utilisateur') });
-  }
-};
-
-/**
- * POST /api/v1/admin/users/:id/suspend
- * Suspend le compte : bannissement auth (connexion impossible) + statut affiché en temps réel.
- */
-export const suspendUser = async (req: Request, res: Response) => {
-  const admin = (req as AuthenticatedRequest).user;
-  const { id } = req.params;
-
-  const parsed = reasonSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
-  const { reason } = parsed.data;
-
-  try {
-    const check = await loadManagedUser(admin?.id, id);
-    if (check.error) return res.status(check.status).json({ error: check.error });
-
-    const { error: banError } = await supabase.auth.admin.updateUserById(id, { ban_duration: BAN_FOREVER });
-    if (banError) throw banError;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ is_suspended: true, suspended_at: new Date().toISOString(), suspension_reason: reason })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-
-    await logActivity({ actorId: admin?.id, action: 'user.suspended', entityType: 'user', entityId: id, metadata: { reason } });
-    res.json(data);
-  } catch (err: unknown) {
-    res.status(500).json({ error: errorMessageOf(err, 'Erreur lors de la suspension du compte') });
-  }
-};
-
-/**
- * POST /api/v1/admin/users/:id/reactivate
- * Lève la suspension (retire le bannissement auth).
- */
-export const reactivateUser = async (req: Request, res: Response) => {
-  const admin = (req as AuthenticatedRequest).user;
-  const { id } = req.params;
-
-  const parsed = reasonSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
-  const { reason } = parsed.data;
-
-  try {
-    const check = await loadManagedUser(admin?.id, id);
-    if (check.error) return res.status(check.status).json({ error: check.error });
-
-    const { error: unbanError } = await supabase.auth.admin.updateUserById(id, { ban_duration: 'none' });
-    if (unbanError) throw unbanError;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ is_suspended: false, suspended_at: null, suspension_reason: null })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-
-    await logActivity({ actorId: admin?.id, action: 'user.reactivated', entityType: 'user', entityId: id, metadata: { reason } });
-    res.json(data);
-  } catch (err: unknown) {
-    res.status(500).json({ error: errorMessageOf(err, 'Erreur lors de la réactivation du compte') });
-  }
-};
-
-/**
- * POST /api/v1/admin/users/:id/delete
- * Suppression définitive du compte (profil, données liées en cascade, et utilisateur auth).
- * Le motif est journalisé ; l'email est conservé dans le journal pour traçabilité.
- */
-export const deleteUserAccount = async (req: Request, res: Response) => {
-  const admin = (req as AuthenticatedRequest).user;
-  const { id } = req.params;
-
-  const parsed = reasonSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
-  const { reason } = parsed.data;
-
-  try {
-    const check = await loadManagedUser(admin?.id, id);
-    if (check.error) return res.status(check.status).json({ error: check.error });
-
-    const { data: details } = await supabase.from('profile_details').select('email').eq('user_id', id).maybeSingle();
-    const email = (details?.email as string | undefined) ?? null;
-
-    const { error: authError } = await supabase.auth.admin.deleteUser(id);
-    if (authError) throw authError;
-
-    await logActivity({
-      actorId: admin?.id,
-      action: 'user.deleted',
-      entityType: 'user',
-      entityId: id,
-      metadata: { reason, email, role: check.profile?.role ?? null },
-    });
-    res.json({ success: true });
-  } catch (err: unknown) {
-    res.status(500).json({ error: errorMessageOf(err, 'Erreur lors de la suppression du compte') });
   }
 };
 

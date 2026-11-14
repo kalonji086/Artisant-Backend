@@ -3,14 +3,12 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { useAdminPresence, useLiveCounts, useSessionDuration } from '../lib/presence';
 import { initials } from '../utils/format';
-import AdminActivityBell from './AdminActivityBell';
 import {
   BriefcaseIcon,
   ChatIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
   CloseIcon,
-  ClockIcon,
   DocumentIcon,
   ExternalLinkIcon,
   GridIcon,
@@ -54,7 +52,6 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/devis', label: 'Devis', icon: <DocumentIcon className={icon} /> },
       { to: '/messages', label: 'Messages', icon: <ChatIcon className={icon} /> },
       { to: '/demandes-employeur', label: 'Demandes employeur', icon: <BriefcaseIcon className={icon} /> },
-      { to: '/support', label: 'Support', icon: <ChatIcon className={icon} /> },
     ],
   },
   {
@@ -66,9 +63,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: 'Système',
-    items: [
-      { to: '/logs', label: 'Logs', icon: <ClockIcon className={icon} /> },
-      { to: '/parametres', label: 'Paramètres', icon: <SettingsIcon className={icon} /> }],
+    items: [{ to: '/parametres', label: 'Paramètres', icon: <SettingsIcon className={icon} /> }],
   },
 ];
 
@@ -257,7 +252,6 @@ export default function Layout() {
           <p className="hidden text-sm text-muted sm:block">Plateforme ARTISANTS — espace administrateur</p>
 
           <div className="ml-auto flex items-center gap-3">
-            <AdminActivityBell />
             <a
               href={PREMIUM_DASHBOARD_URL}
               target="_blank"

@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
-import { logActivity } from '../lib/activity';
 import { sendEmail, generateEmailTemplate } from '../lib/email';
 import { buildEmailFooter, getBranding, invalidateBranding, safeUrl } from '../lib/branding';
 
@@ -81,37 +80,6 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
     urlUpdates[field] = value;
   }
 
-  const appUpdates: Record<string, string | boolean> = {};
-  const { app_primary_color, default_language, default_theme } = req.body;
-  if (app_primary_color !== undefined) {
-    if (typeof app_primary_color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(app_primary_color)) {
-      return res.status(400).json({ error: 'Couleur invalide (format #RRGGBB)' });
-    }
-    appUpdates.app_primary_color = app_primary_color;
-  }
-  if (default_language !== undefined) {
-    if (!['fr', 'en'].includes(default_language)) return res.status(400).json({ error: 'Langue invalide' });
-    appUpdates.default_language = default_language;
-  }
-  if (default_theme !== undefined) {
-    if (!['light', 'dark', 'system'].includes(default_theme)) return res.status(400).json({ error: 'Thème invalide' });
-    appUpdates.default_theme = default_theme;
-  }
-  for (const field of ['maintenance_mode', 'allow_signups'] as const) {
-    if (req.body[field] !== undefined) {
-      if (typeof req.body[field] !== 'boolean') return res.status(400).json({ error: `Valeur invalide (${field})` });
-      appUpdates[field] = req.body[field];
-    }
-  }
-  for (const field of ['maintenance_message', 'announcement'] as const) {
-    if (req.body[field] !== undefined) {
-      if (typeof req.body[field] !== 'string' || req.body[field].length > 500) {
-        return res.status(400).json({ error: `Texte invalide (${field}, 500 caractères max)` });
-      }
-      appUpdates[field] = req.body[field].trim();
-    }
-  }
-
   try {
     // upsert : crée la ligne unique si elle n'existe pas encore
     const { data, error } = await supabase
@@ -126,7 +94,6 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
           ...(contact_email ? { contact_email } : {}),
           ...(typeof reply_to_email === 'string' ? { reply_to_email } : {}),
           ...urlUpdates,
-          ...appUpdates,
           updated_at: new Date().toISOString(),
           updated_by: admin.id,
         },
@@ -137,7 +104,6 @@ export const updatePlatformSettings = async (req: AuthenticatedRequest, res: Res
 
     if (error) throw error;
     invalidateBranding();
-    await logActivity({ actorId: admin.id, action: 'settings.updated', entityType: 'platform_settings' });
 
     logger.info('Paramètres de plateforme mis à jour', { admin_id: admin.id });
     res.json(data);
@@ -286,14 +252,6 @@ export const sendEmailCampaign = async (req: AuthenticatedRequest, res: Response
     } else {
       console.log('[EMAIL] Campaign recorded:', campaign?.id);
     }
-
-    await logActivity({
-      actorId: admin.id,
-      action: 'campaign.sent',
-      entityType: 'email_campaign',
-      entityId: campaign?.id ?? null,
-      metadata: { audience: audience || recipientType, recipient_count: recipients.length },
-    });
 
     logger.info('Email campaign sent', {
       admin_id: admin.id,

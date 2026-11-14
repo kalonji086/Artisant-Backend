@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { supabase } from './supabase';
-import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, Quote, UserUpdateBody } from '../types';
+import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, Quote } from '../types';
 
 const apiClient = axios.create({
   baseURL: '/api/v1',
@@ -81,12 +81,6 @@ export const AdminService = {
   getQuotes: (params?: { status?: string; page?: number; pageSize?: number }) =>
     apiClient.get<Paginated<Quote>>('/admin/quotes', { params }),
 
-  getQuoteTemplates: () =>
-    apiClient.get<{ template_key: 'fixed' | 'detailed'; name: string; html_content: string; updated_at: string }[]>('/admin/quote-templates'),
-
-  updateQuoteTemplate: (key: 'fixed' | 'detailed', body: { name: string; html_content: string }) =>
-    apiClient.put(`/admin/quote-templates/${key}`, body),
-
   getEmployerRequests: (params?: { status?: string; page?: number; pageSize?: number }) =>
     apiClient.get<Paginated<EmployerRequest>>('/admin/employer-requests', { params }),
 
@@ -94,18 +88,6 @@ export const AdminService = {
     id: string,
     body: { status: Exclude<EmployerRequestStatus, 'pending'>; admin_notes?: string }
   ) => apiClient.patch<EmployerRequest>(`/admin/employer-requests/${id}`, body),
-
-  updateUser: (id: string, body: UserUpdateBody) =>
-    apiClient.patch<Profile>(`/admin/users/${id}`, body),
-
-  suspendUser: (id: string, reason: string) =>
-    apiClient.post<Profile>(`/admin/users/${id}/suspend`, { reason }),
-
-  reactivateUser: (id: string, reason: string) =>
-    apiClient.post<Profile>(`/admin/users/${id}/reactivate`, { reason }),
-
-  deleteUser: (id: string, reason: string) =>
-    apiClient.post<{ success: boolean }>(`/admin/users/${id}/delete`, { reason }),
 };
 
 /** Extrait un message utilisateur lisible depuis une erreur Axios/JS. */

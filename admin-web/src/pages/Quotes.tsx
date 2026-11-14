@@ -8,7 +8,6 @@ import { AdminService, apiErrorMessage } from '../lib/api';
 import { useStats } from '../lib/useStats';
 import type { Paginated, Quote } from '../types';
 import { formatDate, formatNumber, formatPrice } from '../utils/format';
-import QuoteTemplates from './QuoteTemplates';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Tous' },
@@ -16,10 +15,8 @@ const STATUS_OPTIONS = [
   { value: 'assigned', label: 'Assignés' },
   { value: 'pending', label: 'En attente' },
   { value: 'accepted', label: 'Acceptés' },
-  { value: 'in_progress', label: 'En cours' },
   { value: 'rejected', label: 'Rejetés' },
   { value: 'completed', label: 'Terminés' },
-  { value: 'quote_sent', label: 'Devis envoyés' },
 ];
 
 const EMPTY_PAGE: Paginated<Quote> = {
@@ -34,7 +31,6 @@ export default function Quotes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
-  const [editingTemplates, setEditingTemplates] = useState(false);
   const stats = useStats();
   const countOf = (s: string) => stats?.quotesByStatus.find((q) => q.status === s)?.count ?? 0;
   const dash = (n: number) => (stats ? formatNumber(n) : '—');
@@ -62,20 +58,11 @@ export default function Quotes() {
 
   return (
     <div>
-      {editingTemplates ? (
-        <QuoteTemplates onClose={() => setEditingTemplates(false)} />
-      ) : (
-      <>
       <PageHeader
         title="Devis"
         subtitle="Toutes les demandes de devis de la plateforme"
         icon={<DocumentIcon className="h-6 w-6" />}
       />
-      <div className="mb-4 flex justify-end">
-        <button type="button" onClick={() => setEditingTemplates(true)} className="rounded-lg border border-brand px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-light">
-          Gérer les modèles
-        </button>
-      </div>
 
       <StatStrip
         tiles={[
@@ -155,9 +142,7 @@ export default function Quotes() {
                       {quote.address && <div className="truncate text-xs">📍 {quote.address}</div>}
                     </td>
                     <td className="px-4 py-3 font-medium whitespace-nowrap text-ink">
-                      {quote.proposal_total != null && quote.proposal_currency
-                        ? `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 6 }).format(Number(quote.proposal_total))} ${quote.proposal_currency}`
-                        : formatPrice(quote.price)}
+                      {formatPrice(quote.price)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge value={quote.status} />
@@ -166,7 +151,7 @@ export default function Quotes() {
                       {formatDate(quote.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {quote.status === 'unassigned' || quote.status === 'assigned' || quote.status === 'pending' || quote.status === 'rejected' ? (
+                      {quote.status === 'unassigned' || quote.status === 'assigned' || quote.status === 'pending' ? (
                         <button
                           type="button"
                           onClick={() =>
@@ -193,8 +178,6 @@ export default function Quotes() {
       {!loading && !error ? (
         <Pagination pagination={result.pagination} onPage={setPage} />
       ) : null}
-      </>
-      )}
     </div>
   );
 }

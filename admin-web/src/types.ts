@@ -1,5 +1,5 @@
 export type ProfileRole = 'client' | 'artisan';
-export type QuoteStatus = 'unassigned' | 'assigned' | 'pending' | 'accepted' | 'in_progress' | 'rejected' | 'completed' | 'quote_sent';
+export type QuoteStatus = 'unassigned' | 'assigned' | 'pending' | 'accepted' | 'rejected' | 'completed';
 export type EmployerRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Profile {
@@ -22,21 +22,7 @@ export interface Profile {
   service_radius_km?: number | null;
   terms_accepted_at?: string | null;
   terms_version?: string | null;
-  is_suspended?: boolean;
-  suspended_at?: string | null;
-  suspension_reason?: string | null;
   created_at: string;
-}
-
-export interface UserUpdateBody {
-  reason: string;
-  full_name?: string;
-  phone?: string | null;
-  city?: string | null;
-  address?: string | null;
-  profession?: string | null;
-  description?: string | null;
-  role?: ProfileRole;
 }
 
 export interface Quote {
@@ -54,8 +40,6 @@ export interface Quote {
   budget?: number | string | null;
   status: QuoteStatus;
   price: number | string | null;
-  proposal_total?: number | string | null;
-  proposal_currency?: string | null;
   created_at: string;
   client_name?: string;
   artisan_name?: string;
@@ -102,11 +86,7 @@ export interface AdminStats {
   };
   quotesByStatus: { status: QuoteStatus; count: number }[];
   signupsByMonth: { month: string; count: number }[];
-  servicesByCategory: { categoryId: string; category: string; count: number }[];
-  artisansByService: { id: string; category: string; service: string; count: number }[];
-  serviceStatsUnavailable: boolean;
-  serviceCatalogAvailable: boolean;
-  serviceAssignmentsAvailable: boolean;
+  servicesByCategory: { category: string; count: number }[];
   recentUsers: Pick<Profile, 'id' | 'full_name' | 'role' | 'avatar_url' | 'created_at'>[];
   recentQuotes: Quote[];
 }

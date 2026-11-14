@@ -8,20 +8,13 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 
 import artisanRoutes from './api/artisan.routes';
-import portfolioRoutes from './api/portfolio.routes';
-import subscriptionRoutes from './api/subscriptions.routes';
 import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
-import restoreRoutes from './api/restore.routes';
-import authRoutes from './api/auth.routes';
-import supportRequestRoutes from './api/support-requests.routes';
-import { getAssetLinks } from './api/restore.controller';
 import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
-import { getBranding, ACCOUNT_DELETION_PATH } from './lib/branding';
+import { getBranding } from './lib/branding';
 import { renderPrivacyPage, renderTermsPage } from './lib/legal';
-import { renderAccountDeletionPage, submitAccountDeletion } from './lib/account-deletion';
-import { getCustomDoc, getLegalDocument } from './api/legal.controller';
+import { getCustomDoc } from './api/legal.controller';
 import { startCampaignScheduler } from './lib/marketing';
 import { errorHandler } from './middleware/error-handler';
 import { correlationIdMiddleware } from './middleware/correlation-id';
@@ -80,12 +73,7 @@ app.use(
           ...(supabaseOrigin ? [supabaseOrigin, supabaseOrigin.replace(/^http/, 'ws')] : []),
         ],
         // Tuiles de la carte admin (OpenStreetMap).
-        imgSrc: [
-          "'self'",
-          'data:',
-          'https://tile.openstreetmap.org',
-          ...(supabaseOrigin ? [supabaseOrigin] : []),
-        ],
+        imgSrc: ["'self'", 'data:', 'https://tile.openstreetmap.org'],
       },
     },
     // OpenStreetMap refuse (403) les tuiles sans Referer : on n'envoie que l'origine.
@@ -127,22 +115,6 @@ const quoteLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const portfolioLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  message: { error: 'Trop de traitements de présentation, veuillez réessayer plus tard.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const subscriptionLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { error: 'Trop de vérifications d’abonnement, veuillez réessayer plus tard.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // 1000 requêtes par fenêtre (compatible IP partagées Render/proxy + dev mobile)
@@ -163,24 +135,11 @@ app.use(generalLimiter);
 // 5. Routes versionnées (/api/v1/...)
 // ============================================
 app.use(`${API_VERSION}/artisans`, authLimiter, artisanRoutes);
-app.use(`${API_VERSION}/portfolio`, portfolioLimiter, portfolioRoutes);
-app.use(`${API_VERSION}/subscriptions`, subscriptionLimiter, subscriptionRoutes);
 app.use(`${API_VERSION}/quotes`, quoteLimiter, quoteRoutes);
 app.use(`${API_VERSION}/admin/marketing`, marketingRouter);
 app.use(`${API_VERSION}/unsubscribe`, unsubscribeRouter);
 app.use(`${API_VERSION}/admin`, adminRoutes);
 app.use(`${API_VERSION}/webhooks`, webhookRoutes);
-app.use(`${API_VERSION}/auth/restore`, restoreRoutes);
-app.use(`${API_VERSION}/auth`, authRoutes);
-app.use(`${API_VERSION}/support-requests`, supportRequestRoutes);
-// Documents légaux publics pour l'application mobile (même contenu que /legal/*, modifiable depuis l'admin)
-app.get(`${API_VERSION}/legal/:slug`, (_req, res, next) => {
-  res.set('Cache-Control', 'no-store');
-  next();
-}, getLegalDocument);
-
-// Vérification Digital Asset Links (Restore Credentials / Credential Manager)
-app.get('/.well-known/assetlinks.json', getAssetLinks);
 
 app.get('/', (_req, res) => {
   res.json({ message: 'Bienvenue sur l\'API ARTISANTS 🚀', status: 'OK', apiVersion: API_VERSION });
@@ -207,32 +166,6 @@ app.get('/legal/terms', async (req, res) => {
   res.set('Cache-Control', 'no-cache').type('html').send(
     renderTermsPage(await getBranding(), legalBase(req), await getCustomDoc('terms'))
   );
-});
-// Demande de suppression de compte (publique, lien depuis les emails et Play Store)
-const deletionLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: 'Trop de demandes, veuillez réessayer plus tard',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.get(ACCOUNT_DELETION_PATH, async (_req, res) => {
-  res.set('Cache-Control', 'no-cache').type('html').send(renderAccountDeletionPage(await getBranding()));
-});
-app.post(ACCOUNT_DELETION_PATH, deletionLimiter, express.urlencoded({ extended: false }), async (req, res, next) => {
-  try {
-    const branding = await getBranding();
-    const result = await submitAccountDeletion(req.body ?? {});
-    if (result.ok) {
-      res.set('Cache-Control', 'no-cache').type('html').send(renderAccountDeletionPage(branding, { success: true }));
-      return;
-    }
-    res.status(400).set('Cache-Control', 'no-cache').type('html').send(
-      renderAccountDeletionPage(branding, { error: result.error, values: result.values })
-    );
-  } catch (err) {
-    next(err);
-  }
 });
 app.use('/admin', express.static(adminDistPath));
 app.get(['/admin', '/admin/'], (_req, res) => {

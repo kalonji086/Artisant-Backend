@@ -54,21 +54,6 @@ dashboard.
 Appliquer les scripts de `supabase_migrations/` dans l'ordre numérique dans le
 SQL Editor du projet Supabase avant de déployer le code qui en dépend.
 `supabase_schema.sql` décrit le schéma principal.
-Avant de déployer le verrouillage des connexions et la vérification des identifiants
-d'inscription, appliquer aussi `supabase_migrations/037_auth_login_security.sql`
-dans le SQL Editor Supabase. Trois échecs de mot de passe verrouillent le compte
-pendant une heure; une nouvelle tentative pendant ce verrouillage porte le délai
-à cinq heures.
-
-## Portfolio artisan
-
-Appliquer les migrations `038_artisan_portfolio_feed.sql`,
-`039_artisan_subscriptions.sql` puis `040_artisan_single_portfolio.sql` dans le
-SQL Editor Supabase. Chaque artisan peut publier une seule réalisation au total;
-elle peut contenir plusieurs photos ou être importée depuis un PowerPoint. Les
-écrans d’abonnement et les boutons d’achat sont retirés de l’application. Les
-routes et tables d’abonnement restent dans le backend, mais ne sont pas proposées
-dans l’interface mobile.
 
 ## Créer le compte administrateur principal
 
@@ -102,19 +87,3 @@ Le dépôt de déploiement est `kalonji086/Artisant-Backend`, branche `main`.
 La configuration Render se trouve dans `server/render.yaml`. Renseigner les
 variables requises dans Render avec les valeurs du projet choisi; les clés
 privées ne doivent jamais être ajoutées au dépôt GitHub.
-
-## Surveillance de l'API
-
-Le workflow `.github/workflows/monitor-api.yml` vérifie l'endpoint de santé de
-production toutes les cinq minutes (GitHub Actions peut retarder une exécution
-planifiée). Il envoie un e-mail via Brevo à `togethertechsupport@gmail.com`
-lorsque l'API devient indisponible, puis à son retour. L'état est mémorisé dans
-le cache Actions pour éviter les alertes répétées pendant une même panne.
-
-Dans **Settings → Secrets and variables → Actions** du dépôt GitHub, ajouter le
-secret `BREVO_API_KEY` et la variable `BREVO_SENDER_EMAIL` avec une adresse
-d'expéditeur vérifiée dans Brevo. La variable `MONITOR_URL` est facultative; par
-défaut, le workflow surveille
-`https://artisant-backend.onrender.com/api/v1/health`. Le workflow a besoin des
-permissions Actions par défaut en lecture du dépôt. Il peut aussi être lancé
-manuellement depuis l'onglet **Actions**.
