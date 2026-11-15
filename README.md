@@ -54,6 +54,22 @@ dashboard.
 Appliquer les scripts de `supabase_migrations/` dans l'ordre numérique dans le
 SQL Editor du projet Supabase avant de déployer le code qui en dépend.
 `supabase_schema.sql` décrit le schéma principal.
+La migration `019_account_deletion_requests.sql` crée la file des demandes de
+suppression visible dans l'administration. Pour la récupération du mot de
+passe mobile, ajouter `artisant://reset-password` aux URL de redirection
+autorisées dans les paramètres Auth du projet Supabase.
+La migration `020_app_preferences_and_notifications.sql` active les préférences
+de compte synchronisées et les notifications mobiles temps réel.
+La migration `021_push_notifications.sql` crée l’enregistrement privé des
+appareils et migre les anciens jetons. Après son exécution, configurer dans
+Supabase un Database Webhook `INSERT` sur `public.app_notifications`, vers
+`https://artisants-backend.onrender.com/api/v1/webhooks/supabase`, avec l’en-tête
+`x-webhook-secret` identique à `SUPABASE_WEBHOOK_SECRET` du serveur.
+Pour Android, configurer les identifiants FCM v1 avec
+`npx eas-cli@latest credentials --platform android`, puis reconstruire
+l’application avec `npx eas-cli@latest build --platform android --profile production`.
+Les notifications push nécessitent un nouveau binaire natif; elles ne fonctionnent
+pas dans l’ancienne version installée.
 
 ## Créer le compte administrateur principal
 

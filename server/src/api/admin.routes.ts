@@ -16,6 +16,10 @@ import {
 import { authenticate, requireAdmin } from '../middleware/auth';
 import { getLegalDocument, saveLegalDocument, resetLegalDocument } from './legal.controller';
 import {
+  getAccountDeletionRequests,
+  updateAccountDeletionRequest,
+} from './account-deletion-admin.controller';
+import {
   listConversations,
   getConversationMessages,
   sendAdminMessage,
@@ -231,6 +235,8 @@ router.patch('/settings', updatePlatformSettings);
 router.get('/legal/:slug', getLegalDocument);
 router.put('/legal/:slug', saveLegalDocument);
 router.delete('/legal/:slug', resetLegalDocument);
+router.get('/account-deletion-requests', getAccountDeletionRequests);
+router.patch('/account-deletion-requests/:id', updateAccountDeletionRequest);
 
 router.get('/chat/conversations', listConversations);
 router.post('/chat/start', startSupportWithUser);

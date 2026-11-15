@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { sanitizeHtml } from '../lib/html-sanitize';
 
 interface Props {
   initialHtml: string;
@@ -80,12 +81,12 @@ export default function RichEditor({ initialHtml, onChange, hideVariables }: Pro
   const savedRange = useRef<Range | null>(null);
 
   useEffect(() => {
-    if (ref.current) ref.current.innerHTML = initialHtml;
+    if (ref.current) ref.current.innerHTML = sanitizeHtml(initialHtml);
     // L'éditeur est non contrôlé : le contenu initial n'est posé qu'une fois (remonter avec `key` pour le remplacer).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const emit = () => onChange(ref.current?.innerHTML ?? '');
+  const emit = () => onChange(sanitizeHtml(ref.current?.innerHTML ?? ''));
 
   const run = (command: string, value?: string) => {
     ref.current?.focus();

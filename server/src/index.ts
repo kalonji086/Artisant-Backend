@@ -8,6 +8,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 
 import artisanRoutes from './api/artisan.routes';
+import accountRoutes from './api/account.routes';
 import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
@@ -135,6 +136,7 @@ app.use(generalLimiter);
 // 5. Routes versionnées (/api/v1/...)
 // ============================================
 app.use(`${API_VERSION}/artisans`, authLimiter, artisanRoutes);
+app.use(`${API_VERSION}/account`, authLimiter, accountRoutes);
 app.use(`${API_VERSION}/quotes`, quoteLimiter, quoteRoutes);
 app.use(`${API_VERSION}/admin/marketing`, marketingRouter);
 app.use(`${API_VERSION}/unsubscribe`, unsubscribeRouter);

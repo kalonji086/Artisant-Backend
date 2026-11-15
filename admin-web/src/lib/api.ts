@@ -84,10 +84,28 @@ export const AdminService = {
   getEmployerRequests: (params?: { status?: string; page?: number; pageSize?: number }) =>
     apiClient.get<Paginated<EmployerRequest>>('/admin/employer-requests', { params }),
 
+  getAccountDeletionRequests: () =>
+    apiClient.get<{ data: AccountDeletionRequest[] }>('/admin/account-deletion-requests'),
+
+  updateAccountDeletionRequest: (
+    id: string,
+    body: { status: AccountDeletionRequest['status'] }
+  ) => apiClient.patch<{ request: AccountDeletionRequest }>(`/admin/account-deletion-requests/${id}`, body),
+
   updateEmployerRequest: (
     id: string,
     body: { status: Exclude<EmployerRequestStatus, 'pending'>; admin_notes?: string }
   ) => apiClient.patch<EmployerRequest>(`/admin/employer-requests/${id}`, body),
+};
+
+export type AccountDeletionRequest = {
+  id: string;
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  status: 'pending' | 'processing' | 'completed' | 'rejected';
+  requested_at: string;
+  processed_at: string | null;
 };
 
 /** Extrait un message utilisateur lisible depuis une erreur Axios/JS. */

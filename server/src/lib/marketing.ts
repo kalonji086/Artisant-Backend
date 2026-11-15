@@ -54,13 +54,15 @@ export const decodeUnsubscribeEmail = (value: string): string =>
   Buffer.from(value, 'base64url').toString('utf8').toLowerCase();
 
 
-/** Retire les scripts, iframes et gestionnaires d'événements du contenu rédigé. */
+/** Retire les scripts, iframes, SVG, et gestionnaires d'événements du contenu rédigé. */
 export const sanitizeHtml = (html: string): string =>
   html
-    .replace(/<\s*(script|iframe|object|embed|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-    .replace(/<\s*(script|iframe|object|embed)[^>]*\/?>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '$1=$2#$2');
+    .replace(/<\s*(script|iframe|object|embed|svg|math|form|meta|link|base|style)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+    .replace(/<\s*(script|iframe|object|embed|svg|math|form|meta|link|base|style)\b[^>]*>/gi, '')
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s(?:href|src|xlink:href)\s*=\s*(?:"|')\s*(?:javascript:|vbscript:|data:(?:text\/html|application\/javascript|image\/svg\+xml))[^"'\s>]*\s*(?:"|')/gi, ' ')
+    .replace(/\s(?:href|src|xlink:href)\s*=\s*(?:"|')\s*#\s*(?:"|')/gi, ' ')
+    .replace(/srcdoc\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
 
 const applyVariables = (text: string, r: Recipient, escape = true): string => {
   const v = (s: string) => (escape ? escapeHtml(s) : s);

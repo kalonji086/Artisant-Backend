@@ -47,7 +47,6 @@ const options = {
             description: { type: 'string' },
             is_available: { type: 'boolean' },
             rating: { type: 'number' },
-            expo_push_token: { type: 'string' },
             created_at: { type: 'string', format: 'date-time' },
             updated_at: { type: 'string', format: 'date-time' },
           },

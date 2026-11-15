@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
+import AccountDeletionRequests from '../components/AccountDeletionRequests';
 import { SearchIcon, ToolIcon, TrendIcon, UsersIcon } from '../components/icons';
 import { EmptyState, ErrorState, FilterTabs, LoadingBlock, PageHeader, StatStrip } from '../components/ui';
 import { AdminService, apiErrorMessage } from '../lib/api';
@@ -98,6 +99,8 @@ export default function Users() {
           { label: 'Clients', value: stats ? formatNumber(stats.totals.clients) : '—', icon: <UsersIcon className="h-5 w-5" />, tone: 'sky' },
         ]}
       />
+
+      <AccountDeletionRequests />
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">

@@ -5,6 +5,7 @@ import { Spinner, PageHeader } from '../components/ui';
 import { ClockIcon, MailIcon, SendIcon, TrashIcon } from '../components/icons';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { apiErrorMessage } from '../lib/api';
+import { sanitizeHtml } from '../lib/html-sanitize';
 import {
   Marketing,
   type Campaign,
@@ -28,7 +29,7 @@ const defaultSchedule = () => toLocalInput(new Date(Date.now() + 60 * 60_000));
 
 const SAMPLE = { '{{nom}}': 'Marie Dupont', '{{metier}}': 'Plombier', '{{ville}}': 'Paris', '{{email}}': 'marie@exemple.fr' };
 const previewDoc = (html: string) => {
-  let out = html;
+  let out = sanitizeHtml(html);
   for (const [k, v] of Object.entries(SAMPLE)) out = out.split(k).join(v);
   return `<!doctype html><html><body style="margin:0;background:#f0f0f3;font-family:Arial,sans-serif;">
 <div style="max-width:640px;margin:24px auto;background:#fff;border-radius:12px;overflow:hidden;">

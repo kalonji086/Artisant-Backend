@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 
-type AuthenticatedRequest = Request & { user?: { id: string; user_metadata?: any } };
+type AuthenticatedRequest = Request & { user?: { id: string; email?: string; user_metadata?: any } };
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
@@ -25,7 +25,11 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return res.status(401).json({ error: 'Session invalide ou expirée' });
     }
 
-    (req as AuthenticatedRequest).user = { id: user.id, user_metadata: user.user_metadata };
+    (req as AuthenticatedRequest).user = {
+      id: user.id,
+      email: user.email,
+      user_metadata: user.user_metadata,
+    };
     next();
   } catch (err) {
     logger.error('Erreur lors de la validation du token', { error: err instanceof Error ? err.message : String(err) });
@@ -71,10 +75,12 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
       // déploiement. On s'auto-répare ici pour ne pas rester bloqué.
       logger.warn('Profil introuvable pour utilisateur authentifié, tentative de réparation automatique', { userId: user.id });
 
-      // Vérifier le rôle dans les métadonnées de l'utilisateur auth
-      const requestedRole = user.user_metadata?.role || 'client';
-      const allowedRoles = ['admin', 'artisan', 'client'];
-      const roleToAssign = allowedRoles.includes(requestedRole) ? requestedRole : 'client';
+      // Vérifier le rôle dans les métadonnées de l'utilisateur auth.
+      // Les rôles admin ne sont jamais attribués directement depuis les métadonnées
+      // de création de compte ; le rôle réel vient de la table `profiles`.
+      const requestedRole = user.user_metadata?.role;
+      const allowedRoles = ['artisan', 'client'];
+      const roleToAssign = requestedRole && allowedRoles.includes(requestedRole) ? requestedRole : 'client';
 
       const { data: created, error: createError } = await supabase
         .from('profiles')

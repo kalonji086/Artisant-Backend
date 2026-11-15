@@ -68,12 +68,13 @@ as $$
 declare
   meta jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
   requested_role text := meta->>'role';
+  normalized_role text := case when requested_role in ('client', 'artisan') then requested_role else 'client' end;
 begin
   insert into public.profiles (id, full_name, role, phone, description, address, profession, city)
   values (
     new.id,
     coalesce(meta->>'full_name', split_part(new.email, '@', 1)),
-    case when requested_role in ('client', 'artisan') then requested_role else 'client' end,
+    normalized_role,
     meta->>'phone',
     meta->>'description',
     meta->>'address',

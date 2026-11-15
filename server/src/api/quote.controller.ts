@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
-import { sendPushNotification } from '../services/notification.service';
 import { createQuoteSchema, updateQuoteStatusSchema, ValidatedRequest } from '../lib/validation';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
@@ -97,22 +96,6 @@ export const updateQuoteStatus = async (req: Request, res: Response) => {
       .single();
 
     if (error) throw error;
-
-    // Notifier le client du changement de statut
-    const { data: client } = await supabase
-      .from('profiles')
-      .select('expo_push_token')
-      .eq('id', data.client_id)
-      .single();
-
-    if (client?.expo_push_token) {
-      await sendPushNotification(
-        client.expo_push_token,
-        'Mise à jour de votre devis',
-        `Votre demande de devis est maintenant : ${status}${price ? ` (Prix: ${price}€)` : ''}`,
-        { quoteId: id }
-      );
-    }
 
     res.json(data);
   } catch (err: unknown) {

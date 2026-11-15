@@ -12,13 +12,14 @@ export interface CustomDoc {
   updatedAt: string;
 }
 
-/** Nettoyage minimal du HTML saisi par l'admin : pas de scripts, de gestionnaires d'événements ni d'URL javascript:. */
+/** Nettoyage du HTML saisi par l'admin : scripts, événements et URLs dangereuses sont supprimés. */
 export const sanitizeLegalHtml = (html: string): string =>
   html
-    .replace(/<(script|style|iframe|object|embed|form|meta|link)\b[\s\S]*?(<\/\1\s*>|$)/gi, '')
-    .replace(/<(script|style|iframe|object|embed|form|meta|link)\b[^>]*>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/\s(href|src)\s*=\s*("|')\s*(javascript|data|vbscript):[^"']*\2/gi, ' $1="#"');
+    .replace(/<\s*(script|style|iframe|object|embed|svg|math|form|meta|link|base)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+    .replace(/<\s*(script|style|iframe|object|embed|svg|math|form|meta|link|base)\b[^>]*>/gi, '')
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s(?:href|src|xlink:href)\s*=\s*(?:"|')\s*(?:javascript:|vbscript:|data:(?:text\/html|application\/javascript|image\/svg\+xml))[^"'\s>]*\s*(?:"|')/gi, ' ')
+    .replace(/srcdoc\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
 
 const stripTags = (v: string): string => v.replace(/<[^>]*>/g, '').trim();
 
