@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { supabase } from './supabase';
-import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, Quote } from '../types';
+import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, ProfileRole, Quote } from '../types';
 
 const apiClient = axios.create({
   baseURL: '/api/v1',
@@ -77,6 +77,15 @@ export const AdminService = {
 
   getUsers: (params?: { search?: string; role?: string; page?: number; pageSize?: number }) =>
     apiClient.get<Paginated<Profile>>('/admin/users', { params }),
+
+  updateUserRole: (id: string, role: ProfileRole) =>
+    api.patch<{ user: Pick<Profile, 'id' | 'role'> }>(`/admin/users/${id}/role`, { role }),
+
+  updateUserBlockedStatus: (id: string, blocked: boolean) =>
+    api.patch<{ userId: string; blocked: boolean; realtime: boolean }>(`/admin/users/${id}/block`, { blocked }),
+
+  deleteUser: (id: string) =>
+    api.delete<{ userId: string; deleted: boolean }>(`/admin/users/${id}`),
 
   getQuotes: (params?: { status?: string; page?: number; pageSize?: number }) =>
     apiClient.get<Paginated<Quote>>('/admin/quotes', { params }),

@@ -10,6 +10,50 @@ const isSlug = (v: unknown): v is LegalSlug => v === 'privacy' || v === 'terms';
 const baseUrlOf = (req: Request): string =>
   (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
 
+const publishLegalDocumentChange = async (slug: LegalSlug, updatedAt: string | null): Promise<boolean> => {
+  const channel = supabase.channel('legal-document-updates', { config: { private: true } });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Délai de connexion Realtime dépassé.')), 8_000);
+      channel.subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          clearTimeout(timeout);
+          resolve();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          clearTimeout(timeout);
+          reject(error instanceof Error ? error : new Error(`Connexion Realtime impossible (${status}).`));
+        }
+      });
+    });
+
+    const status = await channel.send({
+      type: 'broadcast',
+      event: 'document_changed',
+      payload: { slug, updated_at: updatedAt },
+    });
+    if (status !== 'ok') throw new Error(`Publication Realtime impossible (${status}).`);
+    return true;
+  } catch (error) {
+    logger.error('Notification Realtime du document légal impossible', {
+      slug,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  } finally {
+    try {
+      const status = await supabase.removeChannel(channel);
+      if (status !== 'ok') {
+        logger.error('Fermeture du canal Realtime légal impossible', { slug, status });
+      }
+    } catch (error) {
+      logger.error('Fermeture du canal Realtime légal impossible', {
+        slug,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+};
+
 export const getCustomDoc = async (slug: LegalSlug): Promise<CustomDoc | null> => {
   const { data } = await supabase
     .from('legal_documents')
@@ -57,7 +101,8 @@ export const saveLegalDocument = async (req: AuthenticatedRequest, res: Response
     return res.status(500).json({ error: error.message || 'Erreur lors de la sauvegarde' });
   }
   logger.info('Document légal mis à jour', { slug, admin_id: req.user?.id });
-  return res.json({ slug, customized: true, updated_at: data.updated_at });
+  const realtimeUpdated = await publishLegalDocumentChange(slug, data.updated_at);
+  return res.json({ slug, customized: true, updated_at: data.updated_at, realtime_updated: realtimeUpdated });
 };
 
 export const resetLegalDocument = async (req: AuthenticatedRequest, res: Response) => {
@@ -66,5 +111,6 @@ export const resetLegalDocument = async (req: AuthenticatedRequest, res: Respons
 
   const { error } = await supabase.from('legal_documents').delete().eq('slug', slug);
   if (error) return res.status(500).json({ error: error.message || 'Erreur lors de la réinitialisation' });
-  return res.json({ slug, customized: false });
+  const realtimeUpdated = await publishLegalDocumentChange(slug, null);
+  return res.json({ slug, customized: false, realtime_updated: realtimeUpdated });
 };

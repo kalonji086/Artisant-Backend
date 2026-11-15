@@ -7,7 +7,7 @@ import { EmptyState, ErrorState, FilterTabs, LoadingBlock, PageHeader, StatStrip
 import { AdminService, apiErrorMessage } from '../lib/api';
 import { useStats } from '../lib/useStats';
 import { supabase } from '../lib/supabase';
-import type { Paginated, Profile } from '../types';
+import type { Paginated, Profile, ProfileRole } from '../types';
 import { formatDate, formatDateTime, formatNumber, initials } from '../utils/format';
 
 const ROLE_OPTIONS = [
@@ -142,6 +142,7 @@ export default function Users() {
                   <th className="px-4 py-3">Utilisateur</th>
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Rôle</th>
+                  <th className="px-4 py-3">Statut du compte</th>
                   <th className="px-4 py-3">Métier</th>
                   <th className="px-4 py-3">Disponibilité</th>
                   <th className="px-4 py-3">Note</th>
@@ -158,9 +159,7 @@ export default function Users() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-sky-400 text-xs font-bold text-white shadow-sm">
-                          {initials(profile.full_name)}
-                        </span>
+                        <UserAvatar profile={profile} />
                         <div className="min-w-0">
                           <p className="truncate font-medium text-ink">
                             {profile.full_name ?? 'Sans nom'}
@@ -172,6 +171,11 @@ export default function Users() {
                     <td className="px-4 py-3 text-muted">{profile.email ?? '—'}</td>
                     <td className="px-4 py-3">
                       <StatusBadge value={profile.role ?? 'client'} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${profile.is_blocked ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                        {profile.is_blocked ? 'Bloqué' : 'Actif'}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-muted">{profile.role === 'artisan' ? (profile.profession ?? '—') : '—'}</td>
                     <td className="px-4 py-3">
@@ -201,18 +205,64 @@ export default function Users() {
         <Pagination pagination={result.pagination} onPage={setPage} />
       ) : null}
 
-      {selected ? <UserDetails profile={selected} onClose={() => setSelectedId(null)} /> : null}
+      {selected ? (
+        <UserDetails
+          key={`${selected.id}-${selected.role}`}
+          profile={selected}
+          onClose={() => setSelectedId(null)}
+          onRefresh={() => load(true)}
+          onDeleted={async () => {
+            setSelectedId(null);
+            await load(true);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
 const GENDER_LABELS: Record<string, string> = { homme: 'Homme', femme: 'Femme', autre: 'Autre' };
 
-function UserDetails({ profile, onClose }: { profile: Profile; onClose: () => void }) {
+function UserAvatar({ profile, large = false }: { profile: Profile; large?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  const size = large ? 'h-12 w-12 text-sm' : 'h-10 w-10 text-xs';
+
+  return (
+    <span className={`flex ${size} shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand to-sky-400 font-bold text-white shadow-sm`}>
+      {profile.avatar_url && !failed ? (
+        <img
+          src={profile.avatar_url}
+          alt={`Photo de ${profile.full_name ?? 'l’utilisateur'}`}
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        initials(profile.full_name)
+      )}
+    </span>
+  );
+}
+
+function UserDetails({
+  profile,
+  onClose,
+  onRefresh,
+  onDeleted,
+}: {
+  profile: Profile;
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+  onDeleted: () => Promise<void>;
+}) {
+  const [nextRole, setNextRole] = useState<ProfileRole>(profile.role === 'artisan' ? 'artisan' : 'client');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const isArtisan = profile.role === 'artisan';
   const rows: [string, string][] = [
     ['Email', profile.email ?? '—'],
     ['Téléphone', profile.phone ?? '—'],
+    ['Statut du compte', profile.is_blocked ? 'Bloqué' : 'Actif'],
     ...(isArtisan
       ? ([
           ['Date de naissance', profile.birth_date ? formatDate(profile.birth_date) : '—'],
@@ -231,6 +281,43 @@ function UserDetails({ profile, onClose }: { profile: Profile; onClose: () => vo
     ['Inscrit le', formatDateTime(profile.created_at)],
   ];
 
+  const runAction = async (action: () => Promise<unknown>, successMessage: string) => {
+    setActionLoading(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const result = await action();
+      await onRefresh();
+      if (
+        typeof result === 'object'
+        && result !== null
+        && 'realtime' in result
+        && result.realtime === false
+      ) {
+        setActionError('Compte modifié, mais le signal temps réel n’a pas pu être envoyé. Actualisez les autres vues.');
+        return;
+      }
+      setActionSuccess(successMessage);
+    } catch (error) {
+      setActionError(apiErrorMessage(error, 'Impossible de modifier cet utilisateur.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Supprimer définitivement le compte de ${profile.full_name ?? 'cet utilisateur'} ?`)) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await AdminService.deleteUser(profile.id);
+      await onDeleted();
+    } catch (error) {
+      setActionError(apiErrorMessage(error, 'Impossible de supprimer cet utilisateur.'));
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
       <aside
@@ -241,9 +328,7 @@ function UserDetails({ profile, onClose }: { profile: Profile; onClose: () => vo
       >
         <div className="mb-5 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-brand to-sky-400 font-bold text-white">
-              {initials(profile.full_name)}
-            </span>
+            <UserAvatar profile={profile} large />
             <div>
               <h2 className="text-lg font-bold text-ink">{profile.full_name ?? 'Sans nom'}</h2>
               <StatusBadge value={profile.role ?? 'client'} />
@@ -261,6 +346,56 @@ function UserDetails({ profile, onClose }: { profile: Profile; onClose: () => vo
             </div>
           ))}
         </dl>
+        <section className="mt-6 border-t border-gray-100 pt-5" aria-label="Gestion du compte">
+          <h3 className="mb-3 text-sm font-semibold text-ink">Gestion du compte</h3>
+          <label className="mb-2 block text-xs font-medium text-muted" htmlFor="user-role">Rôle</label>
+          <div className="flex gap-2">
+            <select
+              id="user-role"
+              value={nextRole}
+              disabled={actionLoading}
+              onChange={(event) => setNextRole(event.target.value === 'artisan' ? 'artisan' : 'client')}
+              className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-ink disabled:opacity-60"
+            >
+              <option value="client">Client</option>
+              <option value="artisan">Artisan</option>
+            </select>
+            <button
+              type="button"
+              disabled={actionLoading || nextRole === profile.role}
+              onClick={() => void runAction(
+                () => AdminService.updateUserRole(profile.id, nextRole),
+                'Rôle mis à jour.'
+              )}
+              className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Modifier
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={() => void runAction(
+                () => AdminService.updateUserBlockedStatus(profile.id, !profile.is_blocked),
+                profile.is_blocked ? 'Compte débloqué.' : 'Compte bloqué.'
+              )}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${profile.is_blocked ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-amber-50 text-amber-800 hover:bg-amber-100'}`}
+            >
+              {profile.is_blocked ? 'Débloquer le compte' : 'Bloquer le compte'}
+            </button>
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={() => void handleDelete()}
+              className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Supprimer l’utilisateur
+            </button>
+          </div>
+          {actionError ? <p role="alert" className="mt-3 text-sm text-red-700">{actionError}</p> : null}
+          {actionSuccess ? <p role="status" className="mt-3 text-sm text-emerald-700">{actionSuccess}</p> : null}
+        </section>
       </aside>
     </div>
   );

@@ -46,9 +46,14 @@ export default function LegalEditor() {
     setBusy(true);
     setMessage(null);
     try {
-      const data = await api.put<{ updated_at: string }>(`/admin/legal/${slug}`, { html });
+      const data = await api.put<{ updated_at: string; realtime_updated: boolean }>(`/admin/legal/${slug}`, { html });
       setDoc((d) => (d ? { ...d, html, customized: true, updated_at: data.updated_at } : d));
-      setMessage({ ok: true, text: 'Publié : la page publique est à jour immédiatement.' });
+      setMessage({
+        ok: true,
+        text: data.realtime_updated
+          ? 'Publié : le web et les applications ouvertes sont à jour.'
+          : 'Publié : le web est à jour, mais les applications ouvertes devront recharger la page.',
+      });
     } catch (err) {
       setMessage({ ok: false, text: apiErrorMessage(err, 'Erreur lors de la publication (migration 016 exécutée ?)') });
     } finally {
@@ -60,9 +65,14 @@ export default function LegalEditor() {
     if (!window.confirm('Revenir au texte standard ? Votre version personnalisée sera supprimée.')) return;
     setBusy(true);
     try {
-      await api.delete(`/admin/legal/${slug}`);
+      const result: { realtime_updated?: boolean } = await api.delete(`/admin/legal/${slug}`);
       await load(slug);
-      setMessage({ ok: true, text: 'Texte standard restauré.' });
+      setMessage({
+        ok: true,
+        text: result.realtime_updated === false
+          ? 'Texte standard restauré. Les applications ouvertes devront recharger la page.'
+          : 'Texte standard restauré.',
+      });
     } catch (err) {
       setMessage({ ok: false, text: apiErrorMessage(err, 'Erreur lors de la réinitialisation') });
     } finally {

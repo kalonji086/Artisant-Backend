@@ -8,6 +8,7 @@ type AuthenticatedRequest = Request & { user?: { id: string } };
 const QUOTE_STATUSES = ['unassigned', 'assigned', 'pending', 'accepted', 'rejected', 'completed'] as const;
 const PROFILE_ROLES = ['client', 'artisan'] as const;
 const EMPLOYER_REQUEST_STATUSES = ['pending', 'approved', 'rejected'] as const;
+const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** Extrait page/pageSize sûrs depuis la query string (bornés). */
 const parsePagination = (req: Request) => {
@@ -277,17 +278,28 @@ export const getUsers = async (req: Request, res: Response) => {
     if (error) throw error;
 
     const rows = data ?? [];
-    // Table absente (migration 017 non exécutée) : la liste reste affichée sans les détails.
-    const { data: details } = rows.length
+    const detailsResult = rows.length
       ? await supabase.from('profile_details').select('*').in('user_id', rows.map((r) => r.id))
       : { data: [] };
-    const byId = new Map((details ?? []).map((d) => [d.user_id as string, d]));
+    if ('error' in detailsResult && detailsResult.error) throw detailsResult.error;
+    const byId = new Map((detailsResult.data ?? []).map((d) => [d.user_id as string, d]));
+    const blockedStatuses = await Promise.all(rows.map(async (row) => {
+      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(row.id);
+      if (authError) throw authError;
+      const bannedUntil = authUser.user.banned_until;
+      return [
+        row.id,
+        typeof bannedUntil === 'string' && Date.parse(bannedUntil) > Date.now(),
+      ] as const;
+    }));
+    const blockedById = new Map(blockedStatuses);
 
     res.json({
       data: rows.map((r) => {
         const d = byId.get(r.id);
         return {
           ...r,
+          is_blocked: blockedById.get(r.id) ?? false,
           email: d?.email ?? null,
           birth_date: d?.birth_date ?? null,
           gender: d?.gender ?? null,
@@ -312,6 +324,132 @@ export const getUsers = async (req: Request, res: Response) => {
           : 'Erreur inconnue lors de la récupération des utilisateurs';
     logger.error('Erreur lors de la récupération des utilisateurs', { error: message });
     res.status(500).json({ error: message });
+  }
+};
+
+export const updateUserRole = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const role: unknown = req.body?.role;
+  if (!USER_ID_PATTERN.test(id)) return res.status(400).json({ error: 'Identifiant utilisateur invalide.' });
+  if (role !== 'client' && role !== 'artisan') {
+    return res.status(400).json({ error: 'Le rôle doit être client ou artisan.' });
+  }
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+    if (profile.role !== 'client' && profile.role !== 'artisan') {
+      return res.status(403).json({ error: 'Le rôle d’un administrateur ne peut pas être modifié ici.' });
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ role })
+      .eq('id', id)
+      .select('id, role')
+      .single();
+    if (error) throw error;
+
+    logger.info('Rôle utilisateur modifié par un administrateur', {
+      adminId: (req as AuthenticatedRequest).user?.id,
+      userId: id,
+      role,
+    });
+    return res.json({ user: data });
+  } catch (error) {
+    logger.error('Erreur lors de la modification du rôle utilisateur', {
+      userId: id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({ error: 'Impossible de modifier le rôle de cet utilisateur.' });
+  }
+};
+
+export const updateUserBlockedStatus = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const blocked: unknown = req.body?.blocked;
+  if (!USER_ID_PATTERN.test(id)) return res.status(400).json({ error: 'Identifiant utilisateur invalide.' });
+  if (typeof blocked !== 'boolean') {
+    return res.status(400).json({ error: 'Le champ blocked doit être un booléen.' });
+  }
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+    if (profile.role !== 'client' && profile.role !== 'artisan') {
+      return res.status(403).json({ error: 'Le compte d’un administrateur ne peut pas être bloqué ici.' });
+    }
+
+    const { error } = await supabase.auth.admin.updateUserById(id, {
+      ban_duration: blocked ? '876000h' : 'none',
+    });
+    if (error) throw error;
+
+    const { error: realtimeError } = await supabase
+      .from('profiles')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (realtimeError) {
+      logger.warn('Compte modifié, mais signal Realtime utilisateur impossible', {
+        userId: id,
+        error: realtimeError.message,
+      });
+    }
+
+    logger.info('Statut de blocage utilisateur modifié par un administrateur', {
+      adminId: (req as AuthenticatedRequest).user?.id,
+      userId: id,
+      blocked,
+    });
+    return res.json({ userId: id, blocked, realtime: !realtimeError });
+  } catch (error) {
+    logger.error('Erreur lors du changement de statut utilisateur', {
+      userId: id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({ error: 'Impossible de modifier le statut de cet utilisateur.' });
+  }
+};
+
+export const deleteUser = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const adminId = (req as AuthenticatedRequest).user?.id;
+  if (!USER_ID_PATTERN.test(id)) return res.status(400).json({ error: 'Identifiant utilisateur invalide.' });
+  if (adminId === id) return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte ici.' });
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+    if (profile.role !== 'client' && profile.role !== 'artisan') {
+      return res.status(403).json({ error: 'Un compte administrateur ne peut pas être supprimé ici.' });
+    }
+
+    const { error } = await supabase.auth.admin.deleteUser(id);
+    if (error) throw error;
+
+    logger.info('Utilisateur supprimé par un administrateur', { adminId, userId: id });
+    return res.json({ userId: id, deleted: true });
+  } catch (error) {
+    logger.error('Erreur lors de la suppression utilisateur', {
+      userId: id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({ error: 'Impossible de supprimer cet utilisateur.' });
   }
 };
 

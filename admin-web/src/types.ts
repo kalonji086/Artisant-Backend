@@ -7,6 +7,7 @@ export interface Profile {
   full_name: string | null;
   phone: string | null;
   role: ProfileRole | null;
+  is_blocked: boolean;
   avatar_url: string | null;
   is_available: boolean | null;
   rating: number | null;

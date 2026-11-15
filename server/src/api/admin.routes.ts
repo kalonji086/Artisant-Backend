@@ -4,6 +4,9 @@ import {
   getEmployerRequests,
   getQuotes,
   getUsers,
+  updateUserRole,
+  updateUserBlockedStatus,
+  deleteUser,
   updateEmployerRequestStatus,
   getDatabaseStatus,
 } from './admin.controller';
@@ -79,6 +82,9 @@ router.get('/stats', getAdminStats);
  *         description: Accès réservé aux administrateurs
  */
 router.get('/users', getUsers);
+router.patch('/users/:id/role', updateUserRole);
+router.patch('/users/:id/block', updateUserBlockedStatus);
+router.delete('/users/:id', deleteUser);
 
 /**
  * @swagger
