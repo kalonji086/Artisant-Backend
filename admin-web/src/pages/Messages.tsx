@@ -26,6 +26,7 @@ interface Conversation {
 
 interface ChatMessage {
   id: string;
+  conversation_id: string;
   sender_id: string;
   sender_is_admin: boolean;
   content: string;
@@ -70,12 +71,18 @@ export default function Messages() {
   const loadMessages = useCallback(async (id: string, markRead: boolean) => {
     try {
       setMessages(await api.get<ChatMessage[]>(`/admin/chat/conversations/${id}/messages`));
-      if (markRead) {
-        await api.post(`/admin/chat/conversations/${id}/read`);
-        void loadConvs();
-      }
     } catch (err) {
       setError(apiErrorMessage(err, 'Impossible de charger les messages.'));
+      return;
+    }
+
+    if (markRead) {
+      try {
+        await api.post(`/admin/chat/conversations/${id}/read`);
+        void loadConvs();
+      } catch (err) {
+        setError(apiErrorMessage(err, 'Impossible de marquer les messages comme lus.'));
+      }
     }
   }, [loadConvs]);
 
@@ -91,15 +98,24 @@ export default function Messages() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_conversations' }, () => void loadConvs())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
         void loadConvs();
-        if ((payload.new as { conversation_id?: string }).conversation_id === activeId && activeId) {
-          void loadMessages(activeId, true);
+        const message = payload.new as ChatMessage;
+        if (message.conversation_id === activeId && activeId) {
+          setMessages((current) =>
+            current.some((item) => item.id === message.id) ? current : [...current, message]
+          );
+          if (!message.sender_is_admin) {
+            void api.post(`/admin/chat/conversations/${activeId}/read`).then(
+              () => void loadConvs(),
+              (err: unknown) => setError(apiErrorMessage(err, 'Impossible de marquer les messages comme lus.'))
+            );
+          }
         }
       })
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeId, loadConvs, loadMessages]);
+  }, [activeId, loadConvs]);
 
   useEffect(() => {
     if (activeId) void loadMessages(activeId, true);
@@ -117,9 +133,11 @@ export default function Messages() {
     if (!content || !activeId || sending) return;
     setSending(true);
     try {
-      await api.post(`/admin/chat/conversations/${activeId}/messages`, { content });
+      const sent = await api.post<ChatMessage>(`/admin/chat/conversations/${activeId}/messages`, { content });
       setText('');
-      await loadMessages(activeId, false);
+      setMessages((current) =>
+        current.some((message) => message.id === sent.id) ? current : [...current, sent]
+      );
       void loadConvs();
     } catch (err) {
       setError(apiErrorMessage(err, "Impossible d'envoyer le message."));
@@ -138,7 +156,15 @@ export default function Messages() {
       <div className="mb-4">
         <FilterTabs options={KIND_OPTIONS} value={kind} onChange={(v) => setKind(v as 'support' | 'direct')} />
       </div>
-      {error && <ErrorState message={error} onRetry={() => void loadConvs()} />}
+      {error && (
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            if (activeId) void loadMessages(activeId, true);
+            else void loadConvs();
+          }}
+        />
+      )}
       {loading ? (
         <LoadingBlock />
       ) : (
