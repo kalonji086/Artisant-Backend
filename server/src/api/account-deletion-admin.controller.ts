@@ -11,7 +11,7 @@ const isRequestStatus = (value: unknown): value is RequestStatus =>
 export const getAccountDeletionRequests = async (_req: Request, res: Response) => {
   const { data, error } = await supabase
     .from('account_deletion_requests')
-    .select('id, user_id, email, full_name, status, requested_at, processed_at')
+    .select('id, user_id, email, full_name, reason, details, status, requested_at, processed_at')
     .order('requested_at', { ascending: false })
     .limit(100);
 
@@ -37,7 +37,7 @@ export const updateAccountDeletionRequest = async (req: AuthenticatedRequest, re
       processed_by: req.user?.id ?? null,
     })
     .eq('id', id)
-    .select('id, user_id, email, full_name, status, requested_at, processed_at')
+    .select('id, user_id, email, full_name, reason, details, status, requested_at, processed_at')
     .maybeSingle();
 
   if (error) {

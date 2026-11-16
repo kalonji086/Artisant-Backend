@@ -112,6 +112,8 @@ export type AccountDeletionRequest = {
   user_id: string;
   email: string;
   full_name: string | null;
+  reason: 'no_longer_needed' | 'duplicate_account' | 'privacy' | 'other';
+  details: string;
   status: 'pending' | 'processing' | 'completed' | 'rejected';
   requested_at: string;
   processed_at: string | null;

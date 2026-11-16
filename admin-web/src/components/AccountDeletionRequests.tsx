@@ -8,6 +8,13 @@ const STATUS_LABELS: Record<AccountDeletionRequest['status'], string> = {
   rejected: 'Refusée',
 };
 
+const REASON_LABELS: Record<AccountDeletionRequest['reason'], string> = {
+  no_longer_needed: 'N’utilise plus l’application',
+  duplicate_account: 'Compte en double',
+  privacy: 'Confidentialité et données',
+  other: 'Autre',
+};
+
 export default function AccountDeletionRequests() {
   const [requests, setRequests] = useState<AccountDeletionRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +80,8 @@ export default function AccountDeletionRequests() {
               <div className="min-w-0">
                 <p className="truncate font-medium text-ink">{request.full_name || request.email}</p>
                 <p className="truncate text-sm text-muted">{request.email}</p>
+                <p className="mt-2 text-sm font-medium text-ink">{REASON_LABELS[request.reason]}</p>
+                <p className="mt-1 max-w-2xl whitespace-pre-wrap break-words text-sm text-muted">{request.details}</p>
                 <p className="mt-1 text-xs text-muted">
                   Reçue le {new Date(request.requested_at).toLocaleString('fr-FR')}
                 </p>

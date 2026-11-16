@@ -77,6 +77,22 @@ export const createAccountDeletionRequest = async (req: AuthenticatedRequest, re
     return res.status(400).json({ error: 'Adresse email du compte introuvable' });
   }
 
+  const reason = req.body?.reason;
+  const details = typeof req.body?.details === 'string' ? req.body.details.trim() : '';
+  const confirmationEmail = typeof req.body?.confirmation_email === 'string'
+    ? req.body.confirmation_email.trim()
+    : '';
+  const allowedReasons = ['no_longer_needed', 'duplicate_account', 'privacy', 'other'];
+  if (typeof reason !== 'string' || !allowedReasons.includes(reason)) {
+    return res.status(400).json({ error: 'Choisissez un motif valide pour votre demande' });
+  }
+  if (details.length < 20 || details.length > 2000) {
+    return res.status(400).json({ error: 'Les précisions doivent contenir entre 20 et 2000 caractères' });
+  }
+  if (confirmationEmail.toLowerCase() !== user.email.trim().toLowerCase()) {
+    return res.status(400).json({ error: 'Confirmez l’adresse email associée à votre compte' });
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from('account_deletion_requests')
     .select('id, status, requested_at')
@@ -112,6 +128,8 @@ export const createAccountDeletionRequest = async (req: AuthenticatedRequest, re
       user_id: user.id,
       email: user.email,
       full_name: fullName,
+      reason,
+      details,
     })
     .select('id, status, requested_at')
     .single();
