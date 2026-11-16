@@ -151,7 +151,7 @@ export const createGuestSupportRequest = async (req: Request, res: Response) => 
 
   try {
     const { data, error } = await supabase
-      .from('support_requests')
+      .from('guest_support_requests')
       .insert({ full_name: fullName, email, message })
       .select('id, submitted_at')
       .single();

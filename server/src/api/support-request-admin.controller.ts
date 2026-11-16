@@ -9,7 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const getSupportRequests = async (_req: Request, res: Response) => {
   const { data, error } = await supabase
-    .from('support_requests')
+    .from('guest_support_requests')
     .select('id, full_name, email, message, status, submitted_at, processed_at')
     .order('submitted_at', { ascending: false })
     .limit(100);
@@ -30,7 +30,7 @@ export const updateSupportRequestStatus = async (req: AuthenticatedRequest, res:
   }
 
   const { data, error } = await supabase
-    .from('support_requests')
+    .from('guest_support_requests')
     .update({
       status,
       processed_at: status === 'resolved' ? new Date().toISOString() : null,

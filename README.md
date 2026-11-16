@@ -92,6 +92,8 @@ Pour Android, configurer les identifiants FCM v1 avec
 l’application avec `npx eas-cli@latest build --platform android --profile production`.
 Les notifications push nécessitent un nouveau binaire natif; elles ne fonctionnent
 pas dans l’ancienne version installée.
+La migration `030_guest_help_requests.sql` crée la table dédiée aux demandes
+envoyées depuis le Centre d’aide sans connexion.
 
 ## Créer le compte administrateur principal
 

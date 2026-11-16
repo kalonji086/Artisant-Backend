@@ -1,6 +1,6 @@
 begin;
 
-create table if not exists public.support_requests (
+create table if not exists public.guest_support_requests (
   id uuid primary key default gen_random_uuid(),
   full_name text not null check (char_length(btrim(full_name)) between 1 and 120),
   email text not null check (char_length(email) between 3 and 254),
@@ -11,12 +11,12 @@ create table if not exists public.support_requests (
   processed_by uuid references auth.users(id) on delete set null
 );
 
-create index if not exists support_requests_status_date_idx
-  on public.support_requests (status, submitted_at desc);
+create index if not exists guest_support_requests_status_date_idx
+  on public.guest_support_requests (status, submitted_at desc);
 
-alter table public.support_requests enable row level security;
-revoke all on public.support_requests from anon, authenticated;
-grant all on public.support_requests to service_role;
+alter table public.guest_support_requests enable row level security;
+revoke all on public.guest_support_requests from anon, authenticated;
+grant all on public.guest_support_requests to service_role;
 
 commit;
 
