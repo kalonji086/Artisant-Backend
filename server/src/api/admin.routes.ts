@@ -23,6 +23,10 @@ import {
   updateAccountDeletionRequest,
 } from './account-deletion-admin.controller';
 import {
+  getSupportRequests,
+  updateSupportRequestStatus,
+} from './support-request-admin.controller';
+import {
   listConversations,
   getConversationMessages,
   sendAdminMessage,
@@ -243,6 +247,8 @@ router.put('/legal/:slug', saveLegalDocument);
 router.delete('/legal/:slug', resetLegalDocument);
 router.get('/account-deletion-requests', getAccountDeletionRequests);
 router.patch('/account-deletion-requests/:id', updateAccountDeletionRequest);
+router.get('/support-requests', getSupportRequests);
+router.patch('/support-requests/:id', updateSupportRequestStatus);
 
 router.get('/chat/conversations', listConversations);
 router.post('/chat/start', startSupportWithUser);

@@ -66,6 +66,9 @@ appareils et migre les anciens jetons. Après son exécution, configurer dans
 Supabase un Database Webhook `INSERT` sur `public.app_notifications`, vers
 `https://artisant-backend.onrender.com/api/v1/webhooks/supabase`, avec l’en-tête
 `x-webhook-secret` identique à `SUPABASE_WEBHOOK_SECRET` du serveur.
+Les notifications système Android nécessitent aussi les identifiants FCM v1
+configurés pour le projet Expo/EAS, ainsi qu’une nouvelle compilation Android
+après toute modification de la configuration native.
 La migration `022_legal_realtime.sql` autorise l’écoute sécurisée des mises à
 jour des documents légaux; l’application affiche directement les pages Web
 publiques et les recharge lorsqu’un administrateur publie une modification.

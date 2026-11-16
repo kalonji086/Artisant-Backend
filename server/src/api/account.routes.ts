@@ -1,10 +1,33 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { authenticate } from '../middleware/auth';
-import { createAccountDeletionRequest, sendPasswordResetOtp } from './account.controller';
+import {
+  createAccountDeletionRequest,
+  createGuestSupportRequest,
+  sendDeletionRequestOtp,
+  sendPasswordResetOtp,
+} from './account.controller';
 
 const router = Router();
 
+const publicFormLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de demandes, veuillez réessayer plus tard.' },
+});
+const deletionOtpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives, veuillez réessayer plus tard.' },
+});
+
 router.post('/password-reset-otp', sendPasswordResetOtp);
+router.post('/deletion-request-otp', deletionOtpLimiter, sendDeletionRequestOtp);
 router.post('/deletion-requests', authenticate, createAccountDeletionRequest);
+router.post('/support-requests', publicFormLimiter, createGuestSupportRequest);
 
 export default router;

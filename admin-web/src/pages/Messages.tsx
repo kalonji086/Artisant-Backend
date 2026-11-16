@@ -4,6 +4,7 @@ import { EmptyState, ErrorState, FilterTabs, LoadingBlock, PageHeader } from '..
 import { api, apiErrorMessage } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { formatDateTime } from '../utils/format';
+import GuestSupportRequests from '../components/GuestSupportRequests';
 
 interface ChatProfile {
   id: string;
@@ -153,6 +154,7 @@ export default function Messages() {
         subtitle="Répondez aux utilisateurs en temps réel — vos réponses apparaissent sous le nom « Artisant »."
         icon={<ChatIcon className="h-6 w-6" />}
       />
+      <GuestSupportRequests />
       <div className="mb-4">
         <FilterTabs options={KIND_OPTIONS} value={kind} onChange={(v) => setKind(v as 'support' | 'direct')} />
       </div>

@@ -96,6 +96,14 @@ export const AdminService = {
   getAccountDeletionRequests: () =>
     apiClient.get<{ data: AccountDeletionRequest[] }>('/admin/account-deletion-requests'),
 
+  getSupportRequests: () =>
+    apiClient.get<{ data: SupportRequest[] }>('/admin/support-requests'),
+
+  updateSupportRequestStatus: (
+    id: string,
+    body: { status: SupportRequest['status'] }
+  ) => api.patch<{ request: SupportRequest }>(`/admin/support-requests/${id}`, body),
+
   updateAccountDeletionRequest: (
     id: string,
     body: { status: AccountDeletionRequest['status'] }
@@ -116,6 +124,16 @@ export type AccountDeletionRequest = {
   details: string;
   status: 'pending' | 'processing' | 'completed' | 'rejected';
   requested_at: string;
+  processed_at: string | null;
+};
+
+export type SupportRequest = {
+  id: string;
+  full_name: string;
+  email: string;
+  message: string;
+  status: 'pending' | 'resolved';
+  submitted_at: string;
   processed_at: string | null;
 };
 

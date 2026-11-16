@@ -19,6 +19,9 @@ export const sendPushNotification = async (
     sound: 'default',
     title,
     body,
+    priority: 'high',
+    channelId: 'default',
+    ttl: 60 * 60 * 24,
     data,
   }];
 

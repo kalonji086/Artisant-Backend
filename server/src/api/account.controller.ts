@@ -71,6 +71,103 @@ export const sendPasswordResetOtp = async (req: Request, res: Response) => {
   }
 };
 
+export const sendDeletionRequestOtp = async (req: Request, res: Response) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Adresse email invalide' });
+  }
+
+  const genericResponse = {
+    success: true,
+    message: 'Si cette adresse correspond à un compte, un code de vérification lui sera envoyé.',
+  };
+
+  try {
+    const { data, error } = await supabase.auth.admin.generateLink({ type: 'recovery', email });
+    if (error) {
+      if (error.code === 'user_not_found') return res.json(genericResponse);
+      logger.error('Génération du code de demande de suppression impossible', {
+        error: error.message,
+        code: error.code,
+      });
+      return res.status(500).json({ error: 'Impossible de préparer le code de vérification.' });
+    }
+
+    const otp = data?.properties?.email_otp;
+    if (!otp || !/^\d{8}$/.test(otp)) {
+      logger.error('Longueur de code de demande de suppression inattendue', {
+        length: otp?.length ?? 0,
+      });
+      return res.status(500).json({
+        error: 'Le code de vérification doit être configuré sur 8 chiffres.',
+      });
+    }
+
+    const branding = await getBranding();
+    const baseUrl = (process.env.APP_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+    const htmlContent = generateEmailTemplate(
+      'Vérifiez votre adresse pour demander la suppression du compte',
+      `<p>Vous avez demandé une suppression de compte ARTISANTS.</p>
+       <p>Entrez le code à usage unique ci-dessous dans l’application pour vérifier que vous êtes propriétaire de cette adresse email :</p>
+       <p style="margin:28px 0;text-align:center;font-size:32px;font-weight:700;letter-spacing:8px;color:#1877f2;">${otp}</p>
+       <p>Ce code permet uniquement de vérifier votre adresse avant l’envoi de la demande. Si vous n’êtes pas à l’origine de cette demande, ignorez cet email.</p>`,
+      undefined,
+      undefined,
+      `${baseUrl}/logo.png`,
+      buildEmailFooter(branding, baseUrl)
+    );
+
+    await sendEmail({
+      to: email,
+      subject: 'Code de vérification pour votre demande ARTISANTS',
+      htmlContent,
+      textContent: `Vous avez demandé la suppression de votre compte ARTISANTS. Votre code de vérification est : ${otp}. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
+    });
+
+    logger.info('Code de vérification pour demande de suppression envoyé via Brevo');
+    return res.json(genericResponse);
+  } catch (error) {
+    logger.error('Envoi du code de demande de suppression impossible', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(502).json({ error: 'Impossible d’envoyer le code par email. Réessayez plus tard.' });
+  }
+};
+
+export const createGuestSupportRequest = async (req: Request, res: Response) => {
+  const fullName = typeof req.body?.full_name === 'string' ? req.body.full_name.trim() : '';
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+
+  if (!fullName || fullName.length > 120) {
+    return res.status(400).json({ error: 'Saisissez un nom valide (1 à 120 caractères)' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    return res.status(400).json({ error: 'Adresse email invalide' });
+  }
+  if (message.length < 10 || message.length > 2000) {
+    return res.status(400).json({ error: 'Le message doit contenir entre 10 et 2000 caractères' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('support_requests')
+      .insert({ full_name: fullName, email, message })
+      .select('id, submitted_at')
+      .single();
+
+    if (error) throw error;
+
+    logger.info('Demande de support visiteur créée', { request_id: data.id });
+    return res.status(201).json({ request: data });
+  } catch (error) {
+    logger.error('Erreur création demande de support visiteur', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({ error: 'Impossible d’envoyer votre demande au support' });
+  }
+};
+
 export const createAccountDeletionRequest = async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user;
   if (!user?.id || !user.email) {
