@@ -104,14 +104,22 @@ La migration `032_business_workspace.sql` dépend de la migration 031 et ajoute
 l’espace entreprise : demandes et candidatures, projets et messagerie,
 recherche/favoris d’artisans, contrats, suivi informatif des paiements, rapports
 et invitations d’employés. Appliquer les migrations 031 puis 032 avant de
-déployer le backend et l’application mobile. Les paiements ne sont ni encaissés
-ni détenus par ARTISANTS. Les contrats sont des PDF téléversés par l’utilisateur
-et signés par Yousign; aucune clause juridique n’est générée.
+déployer le backend et l’application mobile. La migration
+`033_in_app_business_contract_signatures.sql` ajoute la signature de contrats
+dans ARTISANTS; l’appliquer après 032 et avant de déployer le backend ou
+l’application mobile. Chaque signataire saisit le nom complet attendu et
+confirme explicitement son accord. ARTISANTS conserve le compte, le nom, le
+consentement et l’heure de signature; le PDF original n’est pas modifié. Cette
+signature intégrée ne constitue pas une signature électronique qualifiée et
+aucune clause juridique n’est générée. Les paiements ne sont ni encaissés ni
+détenus par ARTISANTS.
 
-Configurer `YOUSIGN_API_KEY`, `YOUSIGN_ENV` (`sandbox` par défaut ou
-`production`) et `YOUSIGN_WEBHOOK_SECRET` dans l’environnement du backend.
-Déclarer `https://<domaine-api>/api/v1/webhooks/yousign` comme webhook Yousign
-avec l’événement de fin de signature et le même secret HMAC. Pour les employés,
+Les nouveaux contrats n’utilisent pas Yousign et ne nécessitent aucune clé
+Yousign. Conserver `YOUSIGN_API_KEY`, `YOUSIGN_ENV` et
+`YOUSIGN_WEBHOOK_SECRET` uniquement si des demandes Yousign antérieures sont
+encore en cours; déclarer alors
+`https://<domaine-api>/api/v1/webhooks/yousign` comme webhook avec le même
+secret HMAC. Pour les employés,
 `BREVO_API_KEY` doit être configurée pour envoyer les liens de connexion aux
 comptes existants. Autoriser `artisant://business-invite` dans les URL de
 redirection Supabase Auth; définir `BUSINESS_INVITE_REDIRECT_URL` uniquement si

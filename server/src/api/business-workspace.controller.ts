@@ -606,7 +606,7 @@ export async function listBusinessContracts(req: Request, res: Response) {
   const workspace = await requireWorkspace(req, res, true);
   if (!workspace) return;
   const { data, error } = await supabase.from('business_contracts')
-    .select('id, project_id, title, status, signature_provider, signature_request_id, amount, currency, document_path, signed_document_path, created_at, updated_at, business_projects!inner(title)')
+    .select('id, project_id, title, status, signature_provider, amount, currency, document_path, signed_document_path, company_signer_name, company_signed_name, company_signed_at, artisan_signer_name, artisan_signed_name, artisan_signed_at, created_at, updated_at, business_projects!inner(title)')
     .eq('owner_id', workspace.ownerId)
     .order('created_at', { ascending: false })
     .limit(100);
@@ -631,6 +631,81 @@ export async function listBusinessContracts(req: Request, res: Response) {
   } catch (error) {
     return logDatabaseError('Préparation des liens sécurisés de contrat impossible', error, res);
   }
+}
+
+export async function listMyBusinessContracts(req: Request, res: Response) {
+  const userId = (req as AuthenticatedRequest).user?.id;
+  if (!userId) return res.status(401).json({ error: 'Session invalide.' });
+  const { data: projects, error: projectsError } = await supabase
+    .from('business_projects')
+    .select('id, owner_id, title')
+    .eq('artisan_id', userId)
+    .limit(100);
+  if (projectsError) return logDatabaseError('Lecture des projets de l’artisan impossible', projectsError, res);
+  const projectIds = (projects ?? []).map((project) => project.id);
+  if (!projectIds.length) return res.json({ data: [] });
+
+  const { data, error } = await supabase.from('business_contracts')
+    .select('id, owner_id, project_id, title, status, signature_provider, amount, currency, document_path, signed_document_path, company_signer_name, company_signed_name, company_signed_at, artisan_signer_name, artisan_signed_name, artisan_signed_at, created_at, updated_at')
+    .in('project_id', projectIds)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) return logDatabaseError('Lecture des contrats de l’artisan impossible', error, res);
+
+  const ownerIds = Array.from(new Set((data ?? []).map((contract) => contract.owner_id)));
+  const { data: companies, error: companiesError } = ownerIds.length
+    ? await supabase.from('business_profiles').select('owner_id, company_name').in('owner_id', ownerIds)
+    : { data: [], error: null };
+  if (companiesError) return logDatabaseError('Lecture des entreprises signataires impossible', companiesError, res);
+  const projectById = new Map((projects ?? []).map((project) => [project.id, project]));
+  const companyByOwner = new Map((companies ?? []).map((company) => [company.owner_id, company]));
+
+  try {
+    const contracts = await Promise.all((data ?? []).map(async (contract) => {
+      const [original, signed] = await Promise.all([
+        supabase.storage.from('business-contracts').createSignedUrl(contract.document_path, 5 * 60),
+        contract.signed_document_path
+          ? supabase.storage.from('business-contracts').createSignedUrl(contract.signed_document_path, 5 * 60)
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+      if (original.error) throw original.error;
+      if (signed.error) throw signed.error;
+      return {
+        ...contract,
+        document_url: original.data.signedUrl,
+        signed_document_url: signed.data?.signedUrl ?? null,
+        business: companyByOwner.get(contract.owner_id) ?? null,
+        business_projects: projectById.get(contract.project_id) ?? null,
+      };
+    }));
+    return res.json({ data: contracts });
+  } catch (urlError) {
+    return logDatabaseError('Préparation des contrats de l’artisan impossible', urlError, res);
+  }
+}
+
+export async function signBusinessContract(req: Request, res: Response) {
+  const userId = (req as AuthenticatedRequest).user?.id;
+  if (!userId) return res.status(401).json({ error: 'Session invalide.' });
+  if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Identifiant de contrat invalide.' });
+  const fullName = typeof req.body?.full_name === 'string' ? req.body.full_name.trim() : '';
+  if (!isText(fullName, 2, 120)) return res.status(400).json({ error: 'Saisissez votre nom complet (2 à 120 caractères).' });
+  if (req.body?.confirmed !== true) return res.status(400).json({ error: 'Vous devez confirmer votre accord avant de signer.' });
+
+  const { data, error } = await supabase.rpc('sign_business_contract_in_app', {
+    p_contract_id: req.params.id,
+    p_signer_user_id: userId,
+    p_full_name: fullName,
+    p_confirmed: true,
+  });
+  if (error) {
+    if (error.code === 'P0002') return res.status(404).json({ error: 'Contrat introuvable.' });
+    if (error.code === '42501') return res.status(403).json({ error: 'Vous n’êtes pas signataire de ce contrat.' });
+    if (error.code === '22023') return res.status(400).json({ error: error.message });
+    if (error.code === '23505' || error.code === '55000') return res.status(409).json({ error: error.message });
+    return logDatabaseError('Signature du contrat impossible', error, res);
+  }
+  return res.json({ contract: data });
 }
 
 export async function createBusinessContract(req: Request, res: Response) {
@@ -680,7 +755,7 @@ export async function createBusinessContract(req: Request, res: Response) {
     artisan_signer_email: artisanAuth.data.user.email,
     amount,
     currency,
-  }).select('id, project_id, title, status, amount, currency, created_at').single();
+  }).select('id, project_id, title, status, signature_provider, company_signer_name, artisan_signer_name, amount, currency, created_at').single();
   if (error) return logDatabaseError('Création de la fiche contrat impossible', error, res);
   return res.status(201).json({ contract: data });
 }
@@ -729,11 +804,12 @@ async function sendContractForSignature(contractId: string, ownerId: string) {
   const apiKey = process.env.YOUSIGN_API_KEY;
   if (!apiKey) throw new Error('La signature Yousign n’est pas configurée (YOUSIGN_API_KEY).');
   const { data: contract, error } = await supabase.from('business_contracts')
-    .select('id, owner_id, project_id, title, document_path, company_signer_name, company_signer_email, artisan_signer_name, artisan_signer_email, status')
+    .select('id, owner_id, project_id, title, document_path, company_signer_name, company_signer_email, artisan_signer_name, artisan_signer_email, status, signature_provider')
     .eq('id', contractId)
     .eq('owner_id', ownerId)
     .single();
   if (error) throw error;
+  if (contract.signature_provider !== 'yousign') throw new Error('Ce contrat utilise la signature dans ARTISANTS.');
   if (!['draft', 'error'].includes(contract.status)) throw new Error('Ce contrat a déjà été envoyé ou signé.');
 
   const { data: pdf, error: pdfError } = await supabase.storage.from('business-contracts').download(contract.document_path);
@@ -825,6 +901,7 @@ export async function sendBusinessContract(req: Request, res: Response) {
   } catch (error) {
     const message = safeError(error);
     logger.error('Envoi du contrat à Yousign impossible', { contract_id: req.params.id, error: message });
+    if (message === 'Ce contrat utilise la signature dans ARTISANTS.') return res.status(409).json({ error: message });
     if (message.includes('not configured')) return res.status(503).json({ error: 'Configurez YOUSIGN_API_KEY et YOUSIGN_ENV avant d’envoyer un contrat.' });
     return res.status(502).json({ error: 'Yousign n’a pas pu démarrer la signature. Vérifiez le PDF et réessayez.' });
   }

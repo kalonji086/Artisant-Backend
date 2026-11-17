@@ -19,10 +19,12 @@ import {
   listBusinessProjects,
   listBusinessTeam,
   listMyBusinessApplications,
+  listMyBusinessContracts,
   removeBusinessFavorite,
   revokeBusinessMember,
   searchBusinessArtisans,
   searchBusinessJobs,
+  signBusinessContract,
   sendBusinessContract,
   updateBusinessApplication,
   updateBusinessJob,
@@ -58,7 +60,9 @@ router.get('/projects', listBusinessProjects);
 router.patch('/projects/:id', updateBusinessProject);
 
 router.get('/contracts', listBusinessContracts);
+router.get('/contracts/my', listMyBusinessContracts);
 router.post('/contracts', createBusinessContract);
+router.post('/contracts/:id/sign', signBusinessContract);
 router.post('/contracts/:id/send', sendBusinessContract);
 
 router.get('/payments', listBusinessPayments);
