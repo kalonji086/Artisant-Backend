@@ -7,6 +7,10 @@ import {
   sendDeletionRequestOtp,
   sendPasswordResetOtp,
 } from './account.controller';
+import {
+  getMyBusinessVerification as getMyArtisanBusinessVerification,
+  submitBusinessVerification as submitArtisanBusinessVerification,
+} from './business-verification.controller';
 
 const router = Router();
 
@@ -29,5 +33,7 @@ router.post('/password-reset-otp', sendPasswordResetOtp);
 router.post('/deletion-request-otp', deletionOtpLimiter, sendDeletionRequestOtp);
 router.post('/deletion-requests', authenticate, createAccountDeletionRequest);
 router.post('/support-requests', publicFormLimiter, createGuestSupportRequest);
+router.get('/business-verification', authenticate, getMyArtisanBusinessVerification);
+router.post('/business-verification', authenticate, submitArtisanBusinessVerification);
 
 export default router;

@@ -1,6 +1,8 @@
 export type ProfileRole = 'client' | 'artisan';
 export type QuoteStatus = 'unassigned' | 'assigned' | 'pending' | 'accepted' | 'rejected' | 'completed';
 export type EmployerRequestStatus = 'pending' | 'approved' | 'rejected';
+export type ArtisanBusinessType = 'enterprise' | 'subcontractor';
+export type ArtisanBusinessVerificationStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
 
 export interface Profile {
   id: string;
@@ -59,6 +61,29 @@ export interface EmployerRequest {
   admin_notes: string | null;
   approved_at: string | null;
   created_at: string;
+}
+
+export interface ArtisanBusinessVerification {
+  id: string;
+  user_id: string;
+  business_type: ArtisanBusinessType;
+  company_name: string;
+  country: string;
+  registration_number: string;
+  tax_number: string;
+  company_address: string;
+  contact_person: string;
+  contact_email: string;
+  contact_phone: string;
+  status: ArtisanBusinessVerificationStatus;
+  review_note: string | null;
+  documents: Record<'registration' | 'tax' | 'representative_id' | 'authorization', {
+    path: string;
+    signed_url: string;
+  }>;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
 }
 
 export interface Pagination {

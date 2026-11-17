@@ -8,6 +8,7 @@ import { AdminService, apiErrorMessage } from '../lib/api';
 import { useStats } from '../lib/useStats';
 import type { EmployerRequest, Paginated } from '../types';
 import { formatDate, formatNumber, initials } from '../utils/format';
+import ArtisanBusinessVerifications from '../components/ArtisanBusinessVerifications';
 
 const TABS = [
   { value: '', label: 'Toutes' },
@@ -25,6 +26,7 @@ type Flash = { tone: 'ok' | 'error'; message: string } | null;
 type DecisionTarget = { request: EmployerRequest; tone: 'approve' | 'reject' };
 
 export default function EmployerRequests() {
+  const [section, setSection] = useState<'employers' | 'artisan-verifications'>('employers');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<Paginated<EmployerRequest>>(EMPTY_PAGE);
@@ -92,6 +94,26 @@ export default function EmployerRequests() {
 
   return (
     <div>
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Demandes employeur et vérifications">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'employers'}
+          onClick={() => setSection('employers')}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold ${section === 'employers' ? 'bg-brand text-white' : 'border border-gray-200 bg-white text-ink'}`}>
+          Demandes employeur
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'artisan-verifications'}
+          onClick={() => setSection('artisan-verifications')}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold ${section === 'artisan-verifications' ? 'bg-brand text-white' : 'border border-gray-200 bg-white text-ink'}`}>
+          Vérification des artisans
+        </button>
+      </div>
+      {section === 'artisan-verifications' ? <ArtisanBusinessVerifications /> : (
+      <>
       <PageHeader
         title="Demandes employeur"
         subtitle="Validez les entreprises souhaitant publier des offres d'emploi"
@@ -233,6 +255,8 @@ export default function EmployerRequests() {
         }}
         onConfirm={(notes) => void confirmDecision(notes)}
       />
+      </>
+      )}
     </div>
   );
 }

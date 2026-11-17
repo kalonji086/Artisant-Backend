@@ -94,6 +94,29 @@ Les notifications push nécessitent un nouveau binaire natif; elles ne fonctionn
 pas dans l’ancienne version installée.
 La migration `030_guest_help_requests.sql` crée la table dédiée aux demandes
 envoyées depuis le Centre d’aide sans connexion.
+La migration `031_artisan_business_verification.sql` ajoute les demandes
+uniques de vérification « Entreprise » ou « Sous-traitance », le stockage privé
+des justificatifs, la revue Admin dans « Demandes employeur » et la diffusion
+du statut vérifié sur la carte. Appliquer cette migration avant de déployer le
+backend, l’Admin et l’application mobile. Une nouvelle compilation native de
+l’application est nécessaire pour inclure le sélecteur de documents.
+La migration `032_business_workspace.sql` dépend de la migration 031 et ajoute
+l’espace entreprise : demandes et candidatures, projets et messagerie,
+recherche/favoris d’artisans, contrats, suivi informatif des paiements, rapports
+et invitations d’employés. Appliquer les migrations 031 puis 032 avant de
+déployer le backend et l’application mobile. Les paiements ne sont ni encaissés
+ni détenus par ARTISANTS. Les contrats sont des PDF téléversés par l’utilisateur
+et signés par Yousign; aucune clause juridique n’est générée.
+
+Configurer `YOUSIGN_API_KEY`, `YOUSIGN_ENV` (`sandbox` par défaut ou
+`production`) et `YOUSIGN_WEBHOOK_SECRET` dans l’environnement du backend.
+Déclarer `https://<domaine-api>/api/v1/webhooks/yousign` comme webhook Yousign
+avec l’événement de fin de signature et le même secret HMAC. Pour les employés,
+`BREVO_API_KEY` doit être configurée pour envoyer les liens de connexion aux
+comptes existants. Autoriser `artisant://business-invite` dans les URL de
+redirection Supabase Auth; définir `BUSINESS_INVITE_REDIRECT_URL` uniquement si
+une autre URL de retour est utilisée. Ne jamais placer ces secrets dans
+l’application mobile ou dans le dépôt.
 
 ## Créer le compte administrateur principal
 

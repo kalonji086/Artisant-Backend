@@ -1,6 +1,16 @@
 import axios from 'axios';
 import { supabase } from './supabase';
-import type { AdminStats, EmployerRequest, EmployerRequestStatus, Paginated, Profile, ProfileRole, Quote } from '../types';
+import type {
+  AdminStats,
+  ArtisanBusinessVerification,
+  ArtisanBusinessVerificationStatus,
+  EmployerRequest,
+  EmployerRequestStatus,
+  Paginated,
+  Profile,
+  ProfileRole,
+  Quote,
+} from '../types';
 
 const apiClient = axios.create({
   baseURL: '/api/v1',
@@ -113,6 +123,14 @@ export const AdminService = {
     id: string,
     body: { status: Exclude<EmployerRequestStatus, 'pending'>; admin_notes?: string }
   ) => apiClient.patch<EmployerRequest>(`/admin/employer-requests/${id}`, body),
+
+  getArtisanBusinessVerifications: (params?: { status?: string; page?: number; pageSize?: number }) =>
+    apiClient.get<Paginated<ArtisanBusinessVerification>>('/admin/artisan-business-verifications', { params }),
+
+  reviewArtisanBusinessVerification: (
+    id: string,
+    body: { status: ArtisanBusinessVerificationStatus; review_note?: string }
+  ) => apiClient.patch<{ request: ArtisanBusinessVerification }>(`/admin/artisan-business-verifications/${id}`, body),
 };
 
 export type AccountDeletionRequest = {

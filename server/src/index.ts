@@ -12,6 +12,7 @@ import accountRoutes from './api/account.routes';
 import quoteRoutes from './api/quote.routes';
 import adminRoutes from './api/admin.routes';
 import webhookRoutes from './api/webhook.routes';
+import businessRoutes from './api/business.routes';
 import { marketingRouter, unsubscribeRouter } from './api/marketing.routes';
 import { getBranding } from './lib/branding';
 import { renderPrivacyPage, renderTermsPage } from './lib/legal';
@@ -92,7 +93,13 @@ app.use(
   })
 );
 
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buffer) => {
+    if (req.url?.startsWith('/api/v1/webhooks/yousign')) {
+      (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+    }
+  },
+}));
 
 // Correlation ID middleware
 app.use(correlationIdMiddleware);
@@ -138,6 +145,7 @@ app.use(generalLimiter);
 app.use(`${API_VERSION}/artisans`, authLimiter, artisanRoutes);
 app.use(`${API_VERSION}/account`, authLimiter, accountRoutes);
 app.use(`${API_VERSION}/quotes`, quoteLimiter, quoteRoutes);
+app.use(`${API_VERSION}/business`, authLimiter, businessRoutes);
 app.use(`${API_VERSION}/admin/marketing`, marketingRouter);
 app.use(`${API_VERSION}/unsubscribe`, unsubscribeRouter);
 app.use(`${API_VERSION}/admin`, adminRoutes);

@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { handleSupabaseWebhook } from './webhook.controller';
+import { businessWebhook } from './business-workspace.controller';
 
 const router = Router();
 
@@ -44,5 +45,6 @@ const verifyWebhookSecret = (req: Request, res: Response, next: NextFunction) =>
 };
 
 router.post('/supabase', verifyWebhookSecret, handleSupabaseWebhook);
+router.post('/yousign', businessWebhook);
 
 export default router;
