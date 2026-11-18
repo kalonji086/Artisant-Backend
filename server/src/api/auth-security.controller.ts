@@ -88,9 +88,9 @@ export async function loginWithSecurity(req: Request, res: Response) {
       });
     }
 
-    const anonKey = process.env.SUPABASE_ANON_KEY;
+    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
     if (!anonKey) {
-      logger.error('SUPABASE_ANON_KEY manquante pour le service de connexion.');
+      logger.error('Clé publique Supabase manquante pour le service de connexion.');
       return res.status(503).json({ error: 'Le service de connexion n’est pas configuré.' });
     }
     const authUrl = `${(process.env.SUPABASE_URL || '').replace(/\/+$/, '')}/auth/v1/token?grant_type=password`;

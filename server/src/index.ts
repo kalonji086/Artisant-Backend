@@ -29,12 +29,14 @@ import { initializeDatabase } from './lib/init-database';
 // ============================================
 const requiredEnvVars = [
   'SUPABASE_URL',
-  'SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'SUPABASE_WEBHOOK_SECRET',
 ];
 
 const missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
+if (!process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
+  missingEnvVars.push('SUPABASE_ANON_KEY ou VITE_SUPABASE_ANON_KEY');
+}
 if (missingEnvVars.length > 0) {
   logger.error(`Variables d'environnement manquantes : ${missingEnvVars.join(', ')}`);
   process.exit(1);

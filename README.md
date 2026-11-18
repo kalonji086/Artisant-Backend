@@ -127,8 +127,9 @@ bloquer le compte et notifier son adresse par e-mail. Appliquer 035 après 034
 et déployer le backend, l’Admin et l’application mobile. Définir de préférence
 `AUTH_ATTEMPT_HASH_SECRET` avec une clé aléatoire dédiée; à défaut, le backend
 utilise la clé de service Supabase pour hacher les identifiants de limitation.
-Configurer aussi `SUPABASE_ANON_KEY` (clé publique `anon`/publishable) dans
-l’environnement Render afin que le backend relaie la connexion à Supabase Auth.
+Le backend utilise `SUPABASE_ANON_KEY` pour relayer la connexion à Supabase Auth;
+si elle n’est pas définie, il réutilise la clé publique `VITE_SUPABASE_ANON_KEY`
+déjà configurée pour l’Admin web dans Render.
 L’application exige 10 caractères pour un nouveau mot de passe; configurer
 aussi la longueur minimale et la protection des mots de passe compromis dans
 les paramètres Supabase Auth. Conserver les limites de débit natives de Supabase
