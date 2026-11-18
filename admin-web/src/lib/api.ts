@@ -2,6 +2,7 @@ import axios from 'axios';
 import { supabase } from './supabase';
 import type {
   AdminStats,
+  ArtisanBusinessModule,
   ArtisanBusinessVerification,
   ArtisanBusinessVerificationStatus,
   EmployerRequest,
@@ -92,7 +93,9 @@ export const AdminService = {
     api.patch<{ user: Pick<Profile, 'id' | 'role'> }>(`/admin/users/${id}/role`, { role }),
 
   updateUserBlockedStatus: (id: string, blocked: boolean) =>
-    api.patch<{ userId: string; blocked: boolean; realtime: boolean }>(`/admin/users/${id}/block`, { blocked }),
+    api.patch<{ userId: string; blocked: boolean; realtime: boolean; notificationSent: boolean | null }>(`/admin/users/${id}/block`, { blocked }),
+  resolveAuthSecurityEvent: (id: string) =>
+    api.patch<{ success: boolean }>(`/admin/auth-security-events/${id}/resolve`, {}),
 
   deleteUser: (id: string) =>
     api.delete<{ userId: string; deleted: boolean }>(`/admin/users/${id}`),
@@ -129,7 +132,7 @@ export const AdminService = {
 
   reviewArtisanBusinessVerification: (
     id: string,
-    body: { status: ArtisanBusinessVerificationStatus; review_note?: string }
+    body: { status: ArtisanBusinessVerificationStatus; review_note?: string; modules: ArtisanBusinessModule[] }
   ) => apiClient.patch<{ request: ArtisanBusinessVerification }>(`/admin/artisan-business-verifications/${id}`, body),
 };
 

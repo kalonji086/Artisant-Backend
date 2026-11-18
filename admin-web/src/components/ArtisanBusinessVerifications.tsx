@@ -4,6 +4,7 @@ import { EmptyState, ErrorState, FilterTabs, LoadingBlock } from './ui';
 import { AdminService, apiErrorMessage } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import type {
+  ArtisanBusinessModule,
   ArtisanBusinessVerification,
   ArtisanBusinessVerificationStatus,
   Paginated,
@@ -16,6 +17,7 @@ const TABS = [
   { value: 'in_review', label: 'En examen' },
   { value: 'approved', label: 'Approuvées' },
   { value: 'rejected', label: 'Rejetées' },
+  { value: 'revoked', label: 'Retirées' },
 ];
 
 const EMPTY_PAGE: Paginated<ArtisanBusinessVerification> = {
@@ -30,11 +32,30 @@ const PROOF_LABELS = {
   authorization: 'Mandat ou justificatif complémentaire',
 } as const;
 
+const BUSINESS_MODULE_OPTIONS: { value: ArtisanBusinessModule; label: string }[] = [
+  { value: 'dashboard', label: 'Tableau de bord' },
+  { value: 'jobs', label: 'Demandes' },
+  { value: 'applications', label: 'Candidatures' },
+  { value: 'artisans', label: 'Rechercher un artisan' },
+  { value: 'projects', label: 'Projets' },
+  { value: 'messages', label: 'Messages' },
+  { value: 'contracts', label: 'Contrats' },
+  { value: 'payments', label: 'Paiements' },
+  { value: 'favorites', label: 'Favoris' },
+  { value: 'reports', label: 'Rapports' },
+  { value: 'team', label: 'Employés' },
+  { value: 'profile', label: 'Profil entreprise' },
+  { value: 'support', label: 'Assistance' },
+];
+
+const ALL_MODULES = BUSINESS_MODULE_OPTIONS.map(({ value }) => value);
+
 const STATUS_LABELS: Record<ArtisanBusinessVerificationStatus, string> = {
   pending: 'En attente',
   in_review: 'En examen',
   approved: 'Approuvée',
   rejected: 'Rejetée',
+  revoked: 'Retirée',
 };
 
 const STATUS_CLASSES: Record<ArtisanBusinessVerificationStatus, string> = {
@@ -42,6 +63,7 @@ const STATUS_CLASSES: Record<ArtisanBusinessVerificationStatus, string> = {
   in_review: 'bg-blue-50 text-blue-800',
   approved: 'bg-emerald-50 text-emerald-800',
   rejected: 'bg-rose-50 text-rose-800',
+  revoked: 'bg-slate-100 text-slate-700',
 };
 
 type Flash = { tone: 'ok' | 'error'; message: string } | null;
@@ -55,6 +77,7 @@ export default function ArtisanBusinessVerifications() {
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<Flash>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [selectedModules, setSelectedModules] = useState<Record<string, ArtisanBusinessModule[]>>({});
 
   const load = useCallback(async () => {
     setError(null);
@@ -104,14 +127,32 @@ export default function ArtisanBusinessVerifications() {
       setFlash({ tone: 'error', message: 'Saisissez une raison de rejet d’au moins 5 caractères.' });
       return;
     }
+    if (nextStatus === 'revoked' && !window.confirm(`Retirer le statut entreprise de ${request.company_name} ? Tous ses modules entreprise seront désactivés.`)) {
+      return;
+    }
+    const modules = nextStatus === 'rejected' || nextStatus === 'revoked'
+      ? []
+      : selectedModules[request.id] ?? (request.assigned_modules.length ? request.assigned_modules : ALL_MODULES);
+    if (nextStatus === 'approved' && modules.length === 0) {
+      setFlash({ tone: 'error', message: 'Attribuez au moins un module avant l’approbation.' });
+      return;
+    }
     setBusyId(request.id);
     setFlash(null);
     try {
       await AdminService.reviewArtisanBusinessVerification(request.id, {
         status: nextStatus,
         ...(reviewNote ? { review_note: reviewNote } : {}),
+        modules,
       });
-      setFlash({ tone: 'ok', message: `Demande de ${request.company_name} : ${STATUS_LABELS[nextStatus].toLowerCase()}.` });
+      setFlash({
+        tone: 'ok',
+        message: nextStatus === 'revoked'
+          ? `Statut entreprise retiré pour ${request.company_name}.`
+          : nextStatus === 'approved'
+            ? `Demande de ${request.company_name} approuvée avec ${modules.length} module(s).`
+            : `Demande de ${request.company_name} : ${STATUS_LABELS[nextStatus].toLowerCase()}.`,
+      });
       await load();
     } catch (decisionError) {
       setFlash({ tone: 'error', message: apiErrorMessage(decisionError, 'La décision n’a pas pu être enregistrée.') });
@@ -200,6 +241,43 @@ export default function ArtisanBusinessVerifications() {
                 ))}
               </div>
 
+              <fieldset className="mt-4 rounded-lg border border-gray-200 p-3">
+                <legend className="px-1 text-xs font-semibold text-ink">Modules entreprise à attribuer</legend>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {BUSINESS_MODULE_OPTIONS.map((module) => {
+                    const checked = (selectedModules[request.id]
+                      ?? (request.assigned_modules.length ? request.assigned_modules : ALL_MODULES))
+                      .includes(module.value);
+                    return (
+                      <label key={module.value} className="flex items-center gap-2 text-sm text-ink">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={busyId === request.id}
+                          onChange={(event) => {
+                            const enabled = event.currentTarget.checked;
+                            setSelectedModules((current) => {
+                              const selected = current[request.id]
+                                ?? (request.assigned_modules.length ? request.assigned_modules : ALL_MODULES);
+                              return {
+                                ...current,
+                                [request.id]: enabled
+                                  ? [...selected, module.value]
+                                  : selected.filter((item) => item !== module.value),
+                              };
+                            });
+                          }}
+                        />
+                        {module.label}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  Les modifications prennent effet immédiatement après l’enregistrement.
+                </p>
+              </fieldset>
+
               {request.review_note ? (
                 <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
                   <span className="font-semibold">Note :</span> {request.review_note}
@@ -219,18 +297,31 @@ export default function ArtisanBusinessVerifications() {
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
               />
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => void decide(request, 'in_review')} disabled={busyId !== null} className="rounded-lg border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-800 disabled:opacity-50">
-                  Mettre en examen
-                </button>
-                <button type="button" onClick={() => void decide(request, 'pending')} disabled={busyId !== null} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-800 disabled:opacity-50">
-                  Laisser en attente
-                </button>
-                <button type="button" onClick={() => void decide(request, 'approved')} disabled={busyId !== null} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                  Approuver
-                </button>
-                <button type="button" onClick={() => void decide(request, 'rejected')} disabled={busyId !== null} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                  Rejeter
-                </button>
+                {request.status === 'approved' ? (
+                  <>
+                    <button type="button" onClick={() => void decide(request, 'approved')} disabled={busyId !== null} className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                      Enregistrer les modules
+                    </button>
+                    <button type="button" onClick={() => void decide(request, 'revoked')} disabled={busyId !== null} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                      Retirer le statut entreprise
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => void decide(request, 'in_review')} disabled={busyId !== null} className="rounded-lg border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-800 disabled:opacity-50">
+                      Mettre en examen
+                    </button>
+                    <button type="button" onClick={() => void decide(request, 'pending')} disabled={busyId !== null} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-800 disabled:opacity-50">
+                      Laisser en attente
+                    </button>
+                    <button type="button" onClick={() => void decide(request, 'approved')} disabled={busyId !== null} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                      Approuver
+                    </button>
+                    <button type="button" onClick={() => void decide(request, 'rejected')} disabled={busyId !== null} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                      Rejeter
+                    </button>
+                  </>
+                )}
               </div>
             </article>
           ))}

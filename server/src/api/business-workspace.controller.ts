@@ -6,7 +6,13 @@ import { supabase } from '../lib/supabase';
 
 type AuthenticatedRequest = Request & { user?: { id: string; email?: string } };
 type WorkspaceRole = 'owner' | 'employee';
-type Workspace = { ownerId: string; userId: string; role: WorkspaceRole };
+export const BUSINESS_MODULES = [
+  'dashboard', 'jobs', 'applications', 'artisans', 'projects', 'messages',
+  'contracts', 'payments', 'favorites', 'reports', 'team', 'profile', 'support',
+] as const;
+export type BusinessModule = typeof BUSINESS_MODULES[number];
+const EMPLOYEE_MODULES: BusinessModule[] = ['dashboard', 'projects', 'messages', 'support'];
+type Workspace = { ownerId: string; userId: string; role: WorkspaceRole; modules: BusinessModule[] };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -17,11 +23,19 @@ const safeError = (error: unknown) => error instanceof Error ? error.message : S
 async function getWorkspace(userId: string): Promise<Workspace | null> {
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('business_type')
+    .select('business_type, business_modules')
     .eq('id', userId)
     .maybeSingle();
   if (profileError) throw profileError;
-  if (profile?.business_type) return { ownerId: userId, userId, role: 'owner' };
+  if (profile?.business_type) {
+    return {
+      ownerId: userId,
+      userId,
+      role: 'owner',
+      modules: (profile.business_modules ?? []).filter((module): module is BusinessModule =>
+        BUSINESS_MODULES.some((allowed) => allowed === module)),
+    };
+  }
 
   const { data: membership, error } = await supabase
     .from('business_members')
@@ -30,13 +44,22 @@ async function getWorkspace(userId: string): Promise<Workspace | null> {
     .eq('status', 'active')
     .maybeSingle();
   if (error) throw error;
-  return membership ? { ownerId: membership.owner_id, userId, role: 'employee' } : null;
+  if (!membership) return null;
+  const { data: owner, error: ownerError } = await supabase
+    .from('profiles')
+    .select('business_type')
+    .eq('id', membership.owner_id)
+    .maybeSingle();
+  if (ownerError) throw ownerError;
+  if (!owner?.business_type) return null;
+  return { ownerId: membership.owner_id, userId, role: 'employee', modules: EMPLOYEE_MODULES };
 }
 
 async function requireWorkspace(
   req: Request,
   res: Response,
-  ownerOnly = false
+  ownerOnly = false,
+  requiredModule?: BusinessModule | BusinessModule[]
 ): Promise<Workspace | null> {
   const userId = (req as AuthenticatedRequest).user?.id;
   if (!userId) {
@@ -51,6 +74,11 @@ async function requireWorkspace(
     }
     if (ownerOnly && workspace.role !== 'owner') {
       res.status(403).json({ error: 'Cette action est réservée au responsable de l’entreprise.' });
+      return null;
+    }
+    const requiredModules = requiredModule ? (Array.isArray(requiredModule) ? requiredModule : [requiredModule]) : [];
+    if (requiredModules.length && !requiredModules.some((module) => workspace.modules.includes(module))) {
+      res.status(403).json({ error: 'Ce module entreprise n’est pas attribué à votre compte.' });
       return null;
     }
     return workspace;
@@ -77,14 +105,18 @@ export async function getBusinessAccess(req: Request, res: Response) {
   if (!userId) return res.status(401).json({ error: 'Session invalide.' });
   try {
     const workspace = await getWorkspace(userId);
-    return res.json({ access: workspace ? { owner_id: workspace.ownerId, role: workspace.role } : null });
+    return res.json({ access: workspace ? {
+      owner_id: workspace.ownerId,
+      role: workspace.role,
+      modules: workspace.modules,
+    } : null });
   } catch (error) {
     return logDatabaseError('Lecture de l’accès entreprise impossible', error, res);
   }
 }
 
 export async function getBusinessDashboard(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res);
+  const workspace = await requireWorkspace(req, res, false, 'dashboard');
   if (!workspace) return;
   try {
     const ownerId = workspace.ownerId;
@@ -96,7 +128,7 @@ export async function getBusinessDashboard(req: Request, res: Response) {
     if (projects.error) throw projects.error;
     if (workspace.role === 'employee') {
       return res.json({
-        access: { owner_id: ownerId, role: workspace.role },
+        access: { owner_id: ownerId, role: workspace.role, modules: workspace.modules },
         profile: profile.data,
         stats: { active_projects: projects.count ?? 0 },
       });
@@ -113,7 +145,7 @@ export async function getBusinessDashboard(req: Request, res: Response) {
     if (errors?.error) throw errors.error;
 
     return res.json({
-      access: { owner_id: ownerId, role: workspace.role },
+      access: { owner_id: ownerId, role: workspace.role, modules: workspace.modules },
       profile: profile.data,
       stats: {
         jobs: jobs.count ?? 0,
@@ -133,7 +165,7 @@ export async function getBusinessDashboard(req: Request, res: Response) {
 }
 
 export async function getBusinessProfile(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'profile');
   if (!workspace) return;
   const { data, error } = await supabase
     .from('business_profiles')
@@ -146,7 +178,7 @@ export async function getBusinessProfile(req: Request, res: Response) {
 }
 
 export async function updateBusinessProfile(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'profile');
   if (!workspace) return;
   const body = req.body ?? {};
   const allowed: Record<string, [number, number]> = {
@@ -190,7 +222,7 @@ export async function updateBusinessProfile(req: Request, res: Response) {
 const JOB_SELECT = 'id, owner_id, created_by, title, category, description, city, work_type, budget_min, budget_max, currency, status, expires_at, created_at, updated_at';
 
 export async function listBusinessJobs(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'jobs');
   if (!workspace) return;
   const { data, error } = await supabase
     .from('business_jobs')
@@ -252,7 +284,7 @@ export async function searchBusinessJobs(req: Request, res: Response) {
 }
 
 export async function createBusinessJob(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'jobs');
   if (!workspace) return;
   const body = req.body ?? {};
   if (!isText(body.title, 5, 140) || !isText(body.category, 2, 80)
@@ -293,7 +325,7 @@ export async function createBusinessJob(req: Request, res: Response) {
 }
 
 export async function updateBusinessJob(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'jobs');
   if (!workspace) return;
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Identifiant de demande invalide.' });
   const body = req.body ?? {};
@@ -370,7 +402,7 @@ export async function applyToBusinessJob(req: Request, res: Response) {
 }
 
 export async function listBusinessApplications(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'applications');
   if (!workspace) return;
   const jobId = typeof req.query.job_id === 'string' ? req.query.job_id : '';
   let query = supabase
@@ -418,7 +450,7 @@ export async function listMyBusinessApplications(req: Request, res: Response) {
 }
 
 export async function updateBusinessApplication(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'applications');
   if (!workspace) return;
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Identifiant de candidature invalide.' });
   const { status } = req.body ?? {};
@@ -465,7 +497,7 @@ export async function updateBusinessApplication(req: Request, res: Response) {
 }
 
 export async function listBusinessProjects(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res);
+  const workspace = await requireWorkspace(req, res, false, ['projects', 'messages']);
   if (!workspace) return;
   const { data, error } = await supabase
     .from('business_projects')
@@ -484,7 +516,7 @@ export async function listBusinessProjects(req: Request, res: Response) {
 }
 
 export async function updateBusinessProject(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res);
+  const workspace = await requireWorkspace(req, res, false, 'projects');
   if (!workspace) return;
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Identifiant de projet invalide.' });
   const { data: project, error: projectError } = await supabase
@@ -523,7 +555,7 @@ export async function updateBusinessProject(req: Request, res: Response) {
 }
 
 export async function searchBusinessArtisans(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'artisans');
   if (!workspace) return;
   const term = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
   const profession = typeof req.query.profession === 'string' ? req.query.profession.trim().slice(0, 80) : '';
@@ -548,7 +580,7 @@ export async function searchBusinessArtisans(req: Request, res: Response) {
 }
 
 export async function listBusinessFavorites(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'favorites');
   if (!workspace) return;
   const { data: favorites, error } = await supabase
     .from('business_favorites').select('artisan_id, created_at').eq('owner_id', workspace.ownerId).order('created_at', { ascending: false });
@@ -563,7 +595,7 @@ export async function listBusinessFavorites(req: Request, res: Response) {
 }
 
 export async function addBusinessFavorite(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'favorites');
   if (!workspace) return;
   if (!UUID_RE.test(req.params.artisanId) || req.params.artisanId === workspace.ownerId) {
     return res.status(400).json({ error: 'Artisan invalide.' });
@@ -580,7 +612,7 @@ export async function addBusinessFavorite(req: Request, res: Response) {
 }
 
 export async function removeBusinessFavorite(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'favorites');
   if (!workspace) return;
   if (!UUID_RE.test(req.params.artisanId)) return res.status(400).json({ error: 'Artisan invalide.' });
   const { error } = await supabase.from('business_favorites')
@@ -590,7 +622,7 @@ export async function removeBusinessFavorite(req: Request, res: Response) {
 }
 
 export async function listBusinessPayments(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'payments');
   if (!workspace) return;
   const { data, error } = await supabase
     .from('business_payments')
@@ -603,7 +635,7 @@ export async function listBusinessPayments(req: Request, res: Response) {
 }
 
 export async function listBusinessContracts(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'contracts');
   if (!workspace) return;
   const { data, error } = await supabase.from('business_contracts')
     .select('id, project_id, title, status, signature_provider, amount, currency, document_path, signed_document_path, company_signer_name, company_signed_name, company_signed_at, artisan_signer_name, artisan_signed_name, artisan_signed_at, created_at, updated_at, business_projects!inner(title)')
@@ -691,6 +723,21 @@ export async function signBusinessContract(req: Request, res: Response) {
   const fullName = typeof req.body?.full_name === 'string' ? req.body.full_name.trim() : '';
   if (!isText(fullName, 2, 120)) return res.status(400).json({ error: 'Saisissez votre nom complet (2 à 120 caractères).' });
   if (req.body?.confirmed !== true) return res.status(400).json({ error: 'Vous devez confirmer votre accord avant de signer.' });
+  const { data: ownedContract, error: contractError } = await supabase.from('business_contracts')
+    .select('owner_id')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (contractError) return logDatabaseError('Vérification du signataire entreprise impossible', contractError, res);
+  if (ownedContract?.owner_id === userId) {
+    try {
+      const workspace = await getWorkspace(userId);
+      if (workspace?.role !== 'owner' || !workspace.modules.includes('contracts')) {
+        return res.status(403).json({ error: 'Le module Contrats entreprise n’est pas attribué à votre compte.' });
+      }
+    } catch (workspaceError) {
+      return logDatabaseError('Vérification de l’accès de signature impossible', workspaceError, res);
+    }
+  }
 
   const { data, error } = await supabase.rpc('sign_business_contract_in_app', {
     p_contract_id: req.params.id,
@@ -709,7 +756,7 @@ export async function signBusinessContract(req: Request, res: Response) {
 }
 
 export async function createBusinessContract(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'contracts');
   if (!workspace) return;
   const body = req.body ?? {};
   if (!UUID_RE.test(body.project_id ?? '') || !isText(body.title, 3, 160)
@@ -892,7 +939,7 @@ async function sendContractForSignature(contractId: string, ownerId: string) {
 }
 
 export async function sendBusinessContract(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'contracts');
   if (!workspace) return;
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Identifiant de contrat invalide.' });
   try {
@@ -908,7 +955,7 @@ export async function sendBusinessContract(req: Request, res: Response) {
 }
 
 export async function createBusinessPayment(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'payments');
   if (!workspace) return;
   const body = req.body ?? {};
   if (!UUID_RE.test(body.project_id ?? '') || !isText(body.description, 3, 300)) {
@@ -948,7 +995,7 @@ export async function createBusinessPayment(req: Request, res: Response) {
 }
 
 export async function updateBusinessPayment(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'payments');
   if (!workspace) return;
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Identifiant de paiement invalide.' });
   const body = req.body ?? {};
@@ -972,7 +1019,7 @@ export async function updateBusinessPayment(req: Request, res: Response) {
 }
 
 export async function getBusinessReports(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'reports');
   if (!workspace) return;
   const [jobs, projects, applications, payments, contracts] = await Promise.all([
     supabase.from('business_jobs').select('id, status, created_at').eq('owner_id', workspace.ownerId),
@@ -1016,7 +1063,7 @@ export async function getBusinessReports(req: Request, res: Response) {
 }
 
 export async function listBusinessTeam(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'team');
   if (!workspace) return;
   const { data, error } = await supabase.from('business_members')
     .select('id, member_user_id, email, role, status, created_at')
@@ -1026,7 +1073,7 @@ export async function listBusinessTeam(req: Request, res: Response) {
 }
 
 export async function inviteBusinessMember(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'team');
   if (!workspace) return;
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
@@ -1087,7 +1134,7 @@ export async function inviteBusinessMember(req: Request, res: Response) {
 }
 
 export async function revokeBusinessMember(req: Request, res: Response) {
-  const workspace = await requireWorkspace(req, res, true);
+  const workspace = await requireWorkspace(req, res, true, 'team');
   if (!workspace) return;
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Identifiant d’employé invalide.' });
   const { data, error } = await supabase.from('business_members')

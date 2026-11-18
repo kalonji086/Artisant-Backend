@@ -11,6 +11,7 @@ import {
   getMyBusinessVerification as getMyArtisanBusinessVerification,
   submitBusinessVerification as submitArtisanBusinessVerification,
 } from './business-verification.controller';
+import { loginWithSecurity } from './auth-security.controller';
 
 const router = Router();
 
@@ -28,8 +29,16 @@ const deletionOtpLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Trop de tentatives, veuillez réessayer plus tard.' },
 });
+const loginAttemptLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives. Réessayez plus tard.' },
+});
 
 router.post('/password-reset-otp', sendPasswordResetOtp);
+router.post('/login', loginAttemptLimiter, loginWithSecurity);
 router.post('/deletion-request-otp', deletionOtpLimiter, sendDeletionRequestOtp);
 router.post('/deletion-requests', authenticate, createAccountDeletionRequest);
 router.post('/support-requests', publicFormLimiter, createGuestSupportRequest);

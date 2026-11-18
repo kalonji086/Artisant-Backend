@@ -113,6 +113,30 @@ consentement et l’heure de signature; le PDF original n’est pas modifié. Ce
 signature intégrée ne constitue pas une signature électronique qualifiée et
 aucune clause juridique n’est générée. Les paiements ne sont ni encaissés ni
 détenus par ARTISANTS.
+La migration `034_business_module_access.sql` dépend de la migration 033.
+Elle ajoute l’attribution granulaire des modules entreprise par l’Admin, leur
+application dans les routes et politiques d’accès, ainsi que la révocation du
+statut sans retirer le rôle artisan. Appliquer la migration 034 avant de
+déployer le backend, l’Admin et l’application mobile. Les changements de droits
+sont propagés au profil et au menu de l’application en temps réel.
+La migration `035_login_security.sql` ajoute une temporisation progressive des
+échecs de connexion, les alertes Admin en temps réel et le contrôle de
+l’unicité des téléphones. L’alerte Admin n’entraîne pas de blocage automatique :
+l’Admin examine l’IP, l’appareil déclaré et l’identifiant masqué, puis peut
+bloquer le compte et notifier son adresse par e-mail. Appliquer 035 après 034
+et déployer le backend, l’Admin et l’application mobile. Définir de préférence
+`AUTH_ATTEMPT_HASH_SECRET` avec une clé aléatoire dédiée; à défaut, le backend
+utilise la clé de service Supabase pour hacher les identifiants de limitation.
+Configurer aussi `SUPABASE_ANON_KEY` (clé publique `anon`/publishable) dans
+l’environnement Render afin que le backend relaie la connexion à Supabase Auth.
+L’application exige 10 caractères pour un nouveau mot de passe; configurer
+aussi la longueur minimale et la protection des mots de passe compromis dans
+les paramètres Supabase Auth. Conserver les limites de débit natives de Supabase
+Auth : la clé publique utilisée par l’application permet aussi des requêtes
+directes au service Auth, en dehors du parcours de l’application.
+Les e-mails et numéros déjà associés sont refusés avec une réponse générique,
+sans indiquer le champ concerné. Le mot de passe est contrôlé localement pour
+sa robustesse, mais n’est jamais comparé aux mots de passe d’autres comptes.
 
 Les nouveaux contrats n’utilisent pas Yousign et ne nécessitent aucune clé
 Yousign. Conserver `YOUSIGN_API_KEY`, `YOUSIGN_ENV` et

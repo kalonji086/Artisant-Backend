@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { useAdminPresence, useLiveCounts, useSessionDuration } from '../lib/presence';
 import { initials } from '../utils/format';
+import SecurityLoginAlerts from './SecurityLoginAlerts';
 import {
   BriefcaseIcon,
   ChatIcon,
@@ -239,6 +240,7 @@ export default function Layout() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <SecurityLoginAlerts />
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 backdrop-blur sm:px-6">
           <button
             type="button"

@@ -29,6 +29,7 @@ import { initializeDatabase } from './lib/init-database';
 // ============================================
 const requiredEnvVars = [
   'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'SUPABASE_WEBHOOK_SECRET',
 ];

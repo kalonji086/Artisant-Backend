@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { generateEmailTemplate, sendEmail } from '../lib/email';
 import { updateEmployerRequestSchema } from '../lib/validation';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
@@ -381,13 +382,25 @@ export const updateUserBlockedStatus = async (req: Request, res: Response) => {
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, full_name')
       .eq('id', id)
       .maybeSingle();
     if (profileError) throw profileError;
     if (!profile) return res.status(404).json({ error: 'Utilisateur introuvable.' });
     if (profile.role !== 'client' && profile.role !== 'artisan') {
       return res.status(403).json({ error: 'Le compte d’un administrateur ne peut pas être bloqué ici.' });
+    }
+
+    let accountEmail: string | null = null;
+    let wasAlreadyBlocked = false;
+    if (blocked) {
+      const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(id);
+      if (authUserError) throw authUserError;
+      if (!authUser.user) return res.status(404).json({ error: 'Compte Auth introuvable.' });
+      accountEmail = authUser.user.email ?? null;
+      wasAlreadyBlocked = Boolean(
+        authUser.user.banned_until && Date.parse(authUser.user.banned_until) > Date.now()
+      );
     }
 
     const { error } = await supabase.auth.admin.updateUserById(id, {
@@ -406,12 +419,65 @@ export const updateUserBlockedStatus = async (req: Request, res: Response) => {
       });
     }
 
+    let notificationSent: boolean | null = null;
+    if (blocked && !wasAlreadyBlocked) {
+      notificationSent = false;
+      if (accountEmail) {
+        try {
+          const name = profile.full_name?.trim() || 'Utilisateur';
+          const safeName = name.replace(/[&<>"']/g, (character) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+          })[character] ?? character);
+          await sendEmail({
+            to: accountEmail,
+            subject: 'Notification concernant votre compte ARTISANTS',
+            htmlContent: generateEmailTemplate(
+              'Accès à votre compte',
+              `<p>Bonjour ${safeName},</p>
+               <p>L’accès à votre compte ARTISANTS a été désactivé après un examen de sécurité par l’équipe d’administration.</p>
+               <p>Pour obtenir de l’aide, contactez le support depuis le Centre d’aide de l’application. Si vous pensez qu’il s’agit d’une erreur, précisez l’adresse e-mail associée à votre compte.</p>`
+            ),
+            textContent: `Bonjour ${name}, l’accès à votre compte ARTISANTS a été désactivé après un examen de sécurité par l’équipe d’administration. Pour obtenir de l’aide, contactez le support depuis le Centre d’aide de l’application.`,
+          });
+          notificationSent = true;
+        } catch (emailError) {
+          logger.error('Compte bloqué, mais notification par e-mail impossible', {
+            userId: id,
+            error: emailError instanceof Error ? emailError.message : String(emailError),
+          });
+        }
+      } else {
+        logger.warn('Compte bloqué sans adresse e-mail disponible pour la notification', { userId: id });
+      }
+    }
+
+    if (blocked) {
+      const { error: eventError } = await supabase
+        .from('auth_login_security_events')
+        .update({
+          resolved_at: new Date().toISOString(),
+          resolved_by: (req as AuthenticatedRequest).user?.id ?? null,
+        })
+        .eq('user_id', id)
+        .is('resolved_at', null);
+      if (eventError) {
+        logger.warn('Compte bloqué, mais les alertes associées n’ont pas pu être clôturées', {
+          userId: id,
+          error: eventError.message,
+        });
+      }
+    }
+
     logger.info('Statut de blocage utilisateur modifié par un administrateur', {
       adminId: (req as AuthenticatedRequest).user?.id,
       userId: id,
       blocked,
     });
-    return res.json({ userId: id, blocked, realtime: !realtimeError });
+    return res.json({ userId: id, blocked, realtime: !realtimeError, notificationSent });
   } catch (error) {
     logger.error('Erreur lors du changement de statut utilisateur', {
       userId: id,

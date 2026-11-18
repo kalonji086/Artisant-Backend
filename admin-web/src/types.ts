@@ -2,7 +2,10 @@ export type ProfileRole = 'client' | 'artisan';
 export type QuoteStatus = 'unassigned' | 'assigned' | 'pending' | 'accepted' | 'rejected' | 'completed';
 export type EmployerRequestStatus = 'pending' | 'approved' | 'rejected';
 export type ArtisanBusinessType = 'enterprise' | 'subcontractor';
-export type ArtisanBusinessVerificationStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
+export type ArtisanBusinessModule =
+  | 'dashboard' | 'jobs' | 'applications' | 'artisans' | 'projects' | 'messages'
+  | 'contracts' | 'payments' | 'favorites' | 'reports' | 'team' | 'profile' | 'support';
+export type ArtisanBusinessVerificationStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'revoked';
 
 export interface Profile {
   id: string;
@@ -76,6 +79,7 @@ export interface ArtisanBusinessVerification {
   contact_email: string;
   contact_phone: string;
   status: ArtisanBusinessVerificationStatus;
+  assigned_modules: ArtisanBusinessModule[];
   review_note: string | null;
   documents: Record<'registration' | 'tax' | 'representative_id' | 'authorization', {
     path: string;

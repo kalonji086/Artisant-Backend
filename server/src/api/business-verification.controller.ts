@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
+import { BUSINESS_MODULES } from './business-workspace.controller';
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
 type BusinessType = 'enterprise' | 'subcontractor';
 type ProofType = 'registration' | 'tax' | 'representative_id' | 'authorization';
-type BusinessRequestStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
+type BusinessRequestStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'revoked';
 
 const PROOF_TYPES: ProofType[] = ['registration', 'tax', 'representative_id', 'authorization'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,6 +29,7 @@ const publicRequest = (row: Record<string, unknown>) => ({
   contact_email: row.contact_email,
   contact_phone: row.contact_phone,
   status: row.status,
+  assigned_modules: row.assigned_modules ?? [],
   review_note: row.review_note,
   created_at: row.created_at,
   updated_at: row.updated_at,
@@ -40,7 +42,7 @@ export const getMyBusinessVerification = async (req: AuthenticatedRequest, res: 
 
   const { data, error } = await supabase
     .from('artisan_business_verifications')
-    .select('id, user_id, business_type, company_name, country, registration_number, tax_number, company_address, contact_person, contact_email, contact_phone, status, review_note, created_at, updated_at, reviewed_at')
+    .select('id, user_id, business_type, company_name, country, registration_number, tax_number, company_address, contact_person, contact_email, contact_phone, status, assigned_modules, review_note, created_at, updated_at, reviewed_at')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -144,14 +146,14 @@ export const getBusinessVerifications = async (req: Request, res: Response) => {
   const pageSize = Math.min(50, Math.max(1, Number.parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
   const from = (page - 1) * pageSize;
   const status = typeof req.query.status === 'string' ? req.query.status : '';
-  const validStatuses: BusinessRequestStatus[] = ['pending', 'in_review', 'approved', 'rejected'];
+  const validStatuses: BusinessRequestStatus[] = ['pending', 'in_review', 'approved', 'rejected', 'revoked'];
   if (status && !validStatuses.includes(status as BusinessRequestStatus)) {
     return res.status(400).json({ error: 'Filtre de statut invalide.' });
   }
 
   let query = supabase
     .from('artisan_business_verifications')
-    .select('id, user_id, business_type, company_name, country, registration_number, tax_number, company_address, contact_person, contact_email, contact_phone, documents, status, review_note, created_at, updated_at, reviewed_at', { count: 'exact' });
+    .select('id, user_id, business_type, company_name, country, registration_number, tax_number, company_address, contact_person, contact_email, contact_phone, documents, status, assigned_modules, review_note, created_at, updated_at, reviewed_at', { count: 'exact' });
   if (status) query = query.eq('status', status);
 
   const { data, count, error } = await query
@@ -190,11 +192,21 @@ export const getBusinessVerifications = async (req: Request, res: Response) => {
 export const reviewBusinessVerification = async (req: AuthenticatedRequest, res: Response) => {
   const adminId = req.user?.id;
   const requestId = req.params.id;
-  const { status, review_note: reviewNote } = req.body ?? {};
-  const allowed: BusinessRequestStatus[] = ['pending', 'in_review', 'approved', 'rejected'];
+  const { status, review_note: reviewNote, modules } = req.body ?? {};
+  const allowed: BusinessRequestStatus[] = ['pending', 'in_review', 'approved', 'rejected', 'revoked'];
 
   if (!UUID_RE.test(requestId)) return res.status(400).json({ error: 'Identifiant de demande invalide.' });
   if (!adminId || !allowed.includes(status)) return res.status(400).json({ error: 'Statut de décision invalide.' });
+  if (!Array.isArray(modules) || modules.some((module: unknown) =>
+    typeof module !== 'string' || !BUSINESS_MODULES.includes(module as typeof BUSINESS_MODULES[number]))) {
+    return res.status(400).json({ error: 'Sélection de modules entreprise invalide.' });
+  }
+  if (new Set(modules).size !== modules.length) {
+    return res.status(400).json({ error: 'La sélection contient des modules en double.' });
+  }
+  if (status === 'approved' && modules.length === 0) {
+    return res.status(400).json({ error: 'Attribuez au moins un module avant l’approbation.' });
+  }
   if (status === 'rejected' && !requiredText(reviewNote, 5, 1000)) {
     return res.status(400).json({ error: 'Une raison de rejet (5 à 1000 caractères) est obligatoire.' });
   }
@@ -207,6 +219,7 @@ export const reviewBusinessVerification = async (req: AuthenticatedRequest, res:
     p_status: status,
     p_review_note: typeof reviewNote === 'string' ? reviewNote.trim() : null,
     p_admin_id: adminId,
+    p_modules: modules,
   });
   if (error) {
     const notFound = error.code === 'P0002';

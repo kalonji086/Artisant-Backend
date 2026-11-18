@@ -297,6 +297,15 @@ function UserDetails({
         setActionError('Compte modifié, mais le signal temps réel n’a pas pu être envoyé. Actualisez les autres vues.');
         return;
       }
+      if (
+        typeof result === 'object'
+        && result !== null
+        && 'notificationSent' in result
+        && result.notificationSent === false
+      ) {
+        setActionError('Compte bloqué, mais la notification par e-mail n’a pas pu être envoyée.');
+        return;
+      }
       setActionSuccess(successMessage);
     } catch (error) {
       setActionError(apiErrorMessage(error, 'Impossible de modifier cet utilisateur.'));
