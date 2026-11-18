@@ -13,6 +13,7 @@ import {
   DocumentIcon,
   ExternalLinkIcon,
   GridIcon,
+  InboxIcon,
   LogoutIcon,
   MailIcon,
   MapIcon,
@@ -53,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/devis', label: 'Devis', icon: <DocumentIcon className={icon} /> },
       { to: '/messages', label: 'Messages', icon: <ChatIcon className={icon} /> },
       { to: '/demandes-employeur', label: 'Demandes employeur', icon: <BriefcaseIcon className={icon} /> },
+      { to: '/support', label: 'Support', icon: <InboxIcon className={icon} /> },
     ],
   },
   {

@@ -1088,34 +1088,42 @@ export async function inviteBusinessMember(req: Request, res: Response) {
     .from('business_profiles').select('company_name').eq('owner_id', workspace.ownerId).single();
   if (businessError) return logDatabaseError('Lecture du nom de l’entreprise impossible', businessError, res);
 
-  let memberUserId: string;
   const redirectTo = process.env.BUSINESS_INVITE_REDIRECT_URL || 'artisant://business-invite';
-  const invited = await supabase.auth.admin.inviteUserByEmail(email, { redirectTo });
-  if (!invited.error && invited.data.user) {
-    memberUserId = invited.data.user.id;
-  } else if (invited.error?.message.toLowerCase().includes('already registered')
-    || invited.error?.message.toLowerCase().includes('already been registered')) {
-    const link = await supabase.auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo } });
-    const existingId = link.data.user?.id;
-    const actionLink = link.data.properties?.action_link;
-    if (link.error || !existingId || !actionLink) {
-      logger.error('Création du lien de connexion pour invitation impossible', { error: link.error?.message ?? 'Lien manquant' });
-      return res.status(502).json({ error: 'Impossible de préparer le lien de connexion de cet employé.' });
-    }
-    memberUserId = existingId;
-    try {
-      await sendEmail({
-        to: email,
-        subject: 'Invitation à rejoindre une équipe ARTISANTS',
-        htmlContent: `<p>Vous êtes invité(e) à rejoindre l’équipe de ${escapedHtml(business.company_name)} sur ARTISANTS.</p><p><a href="${escapedHtml(actionLink)}">Accepter l’invitation et vous connecter</a></p>`,
-      });
-    } catch (error) {
-      logger.error('Envoi de l’invitation par e-mail impossible', { error: safeError(error) });
-      return res.status(502).json({ error: 'Le lien de connexion n’a pas pu être envoyé. Vérifiez la configuration e-mail.' });
-    }
-  } else {
-    logger.error('Invitation Supabase impossible', { error: invited.error?.message ?? 'Utilisateur manquant' });
-    return res.status(502).json({ error: 'Impossible de créer l’invitation. Vérifiez la configuration des e-mails Supabase.' });
+  let link = await supabase.auth.admin.generateLink({
+    type: 'invite',
+    email,
+    options: { redirectTo },
+  });
+  if (
+    link.error
+    && (link.error.code === 'email_exists' || /already (?:been )?registered/i.test(link.error.message))
+  ) {
+    link = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: { redirectTo },
+    });
+  }
+  const memberUserId = link.data.user?.id;
+  const actionLink = link.data.properties?.action_link;
+  if (link.error || !memberUserId || !actionLink) {
+    logger.error('Création du lien d’invitation impossible', {
+      code: link.error?.code,
+      error: link.error?.message ?? 'Utilisateur ou lien manquant',
+    });
+    return res.status(502).json({ error: 'Impossible de préparer le lien d’invitation. Vérifiez la configuration Supabase Auth.' });
+  }
+
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Invitation à rejoindre une équipe ARTISANTS',
+      htmlContent: `<p>Vous êtes invité(e) à rejoindre l’équipe de ${escapedHtml(business.company_name)} sur ARTISANTS.</p><p><a href="${escapedHtml(actionLink)}">Accepter l’invitation et vous connecter</a></p>`,
+      textContent: `Vous êtes invité(e) à rejoindre l’équipe de ${business.company_name} sur ARTISANTS. Ouvrez ce lien pour accepter l’invitation : ${actionLink}`,
+    });
+  } catch (error) {
+    logger.error('Envoi de l’invitation par e-mail impossible', { error: safeError(error) });
+    return res.status(502).json({ error: 'Le lien d’invitation n’a pas pu être envoyé. Vérifiez la configuration e-mail.' });
   }
 
   const { data, error } = await supabase.from('business_members').upsert({
