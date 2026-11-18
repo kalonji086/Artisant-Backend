@@ -32,8 +32,10 @@ async function getWorkspace(userId: string): Promise<Workspace | null> {
       ownerId: userId,
       userId,
       role: 'owner',
-      modules: (profile.business_modules ?? []).filter((module): module is BusinessModule =>
-        BUSINESS_MODULES.some((allowed) => allowed === module)),
+      modules: Array.isArray(profile.business_modules)
+        ? profile.business_modules.filter((module: unknown): module is BusinessModule =>
+          typeof module === 'string' && BUSINESS_MODULES.some((allowed) => allowed === module))
+        : [],
     };
   }
 

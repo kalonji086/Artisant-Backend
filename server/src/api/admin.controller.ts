@@ -425,13 +425,14 @@ export const updateUserBlockedStatus = async (req: Request, res: Response) => {
       if (accountEmail) {
         try {
           const name = profile.full_name?.trim() || 'Utilisateur';
-          const safeName = name.replace(/[&<>"']/g, (character) => ({
+          const htmlEscapes: Record<string, string> = {
             '&': '&amp;',
             '<': '&lt;',
             '>': '&gt;',
             '"': '&quot;',
             "'": '&#39;',
-          })[character] ?? character);
+          };
+          const safeName = name.replace(/[&<>"']/g, (character: string) => htmlEscapes[character] ?? character);
           await sendEmail({
             to: accountEmail,
             subject: 'Notification concernant votre compte ARTISANTS',
