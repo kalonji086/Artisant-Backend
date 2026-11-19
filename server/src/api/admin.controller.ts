@@ -65,6 +65,8 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       totalProfilesRes,
       clientsRes,
       artisansRes,
+      enterprisesRes,
+      subcontractorsRes,
       activeArtisansRes,
       quotesTotalRes,
       categoriesRes,
@@ -76,6 +78,8 @@ export const getAdminStats = async (_req: Request, res: Response) => {
       (() => { console.log('[STATS] totalProfiles'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).in('role', PROFILE_ROLES); })(),
       (() => { console.log('[STATS] clients'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'client'); })(),
       (() => { console.log('[STATS] artisans'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan'); })(),
+      (() => { console.log('[STATS] enterprises'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan').eq('business_type', 'enterprise'); })(),
+      (() => { console.log('[STATS] subcontractors'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan').eq('business_type', 'subcontractor'); })(),
       (() => { console.log('[STATS] activeArtisans'); return supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artisan').eq('is_available', true); })(),
       (() => { console.log('[STATS] quotes'); return supabase.from('quotes').select('id', { count: 'exact', head: true }); })(),
       (() => { console.log('[STATS] categories'); return supabase.from('categories').select('id', { count: 'exact', head: true }); })(),
@@ -86,7 +90,7 @@ export const getAdminStats = async (_req: Request, res: Response) => {
     ]);
 
     const allResults = [
-      totalProfilesRes, clientsRes, artisansRes, activeArtisansRes, quotesTotalRes,
+      totalProfilesRes, clientsRes, artisansRes, enterprisesRes, subcontractorsRes, activeArtisansRes, quotesTotalRes,
       categoriesRes, pendingRequestsRes, recentProfilesRes, recentQuotesRes,
       categoriesListRes,
     ];
@@ -203,6 +207,8 @@ export const getAdminStats = async (_req: Request, res: Response) => {
         users: totalProfilesRes.count ?? 0,
         clients: clientsRes.count ?? 0,
         artisans: artisansRes.count ?? 0,
+        enterprises: enterprisesRes.count ?? 0,
+        subcontractors: subcontractorsRes.count ?? 0,
         activeArtisans: activeArtisansRes.count ?? 0,
         quotes: quotesTotalRes.count ?? 0,
         quotesPending: quotesByStatus.find((s) => s.status === 'pending')?.count ?? 0,

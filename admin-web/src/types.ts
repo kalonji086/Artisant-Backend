@@ -107,6 +107,8 @@ export interface AdminStats {
     users: number;
     clients: number;
     artisans: number;
+    enterprises: number;
+    subcontractors: number;
     activeArtisans: number;
     quotes: number;
     quotesPending: number;

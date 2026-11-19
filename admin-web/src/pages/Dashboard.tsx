@@ -47,6 +47,14 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Terminés',
 };
 
+const PROFILE_SEGMENTS = [
+  { key: 'users', label: 'Utilisateurs', color: '#2563eb' },
+  { key: 'clients', label: 'Clients', color: '#10b981' },
+  { key: 'artisans', label: 'Artisans', color: '#8b5cf6' },
+  { key: 'enterprises', label: 'Entreprises', color: '#f59e0b' },
+  { key: 'subcontractors', label: 'Sous-traitance', color: '#ec4899' },
+] as const;
+
 interface DecisionTarget {
   request: EmployerRequest;
   tone: 'approve' | 'reject';
@@ -191,20 +199,13 @@ export default function Dashboard() {
         ) : null}
 
         {/* KPIs */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Utilisateurs"
             value={formatNumber(totals.users)}
-            hint={`${formatNumber(totals.clients)} clients · ${formatNumber(totals.artisans)} artisans`}
+            hint="Tous les comptes client et artisan"
             icon={<UsersIcon className="h-6 w-6" />}
             tone="brand"
-          />
-          <StatCard
-            label="Artisans disponibles"
-            value={formatNumber(totals.activeArtisans)}
-            hint={`sur ${formatNumber(totals.artisans)} artisans inscrits`}
-            icon={<ToolIcon className="h-6 w-6" />}
-            tone="green"
           />
           <StatCard
             label="Clients"
@@ -212,6 +213,27 @@ export default function Dashboard() {
             hint="Comptes côté demande"
             icon={<TrendIcon className="h-6 w-6" />}
             tone="cyan"
+          />
+          <StatCard
+            label="Artisans"
+            value={formatNumber(totals.artisans)}
+            hint={`${formatNumber(totals.activeArtisans)} disponibles`}
+            icon={<ToolIcon className="h-6 w-6" />}
+            tone="green"
+          />
+          <StatCard
+            label="Entreprises"
+            value={formatNumber(totals.enterprises)}
+            hint="Statut entreprise approuvé"
+            icon={<BriefcaseIcon className="h-6 w-6" />}
+            tone="amber"
+          />
+          <StatCard
+            label="Sous-traitance"
+            value={formatNumber(totals.subcontractors)}
+            hint="Statut sous-traitant approuvé"
+            icon={<BriefcaseIcon className="h-6 w-6" />}
+            tone="rose"
           />
           <StatCard
             label="Devis en attente"
@@ -236,6 +258,60 @@ export default function Dashboard() {
           />
         </div>
         {/* Graphiques */}
+        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-ink">Comptes par catégorie</h3>
+              <p className="mt-1 text-xs text-muted">
+                Les entreprises et sous-traitants sont inclus dans le total des artisans.
+              </p>
+            </div>
+            <span className="text-xs font-medium text-muted">Données actualisées avec le tableau de bord</span>
+          </div>
+          <div className="mt-4 h-64 sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={PROFILE_SEGMENTS.map((segment) => ({
+                  name: segment.label,
+                  count: totals[segment.key],
+                  color: segment.color,
+                }))}
+                layout="vertical"
+                margin={{ top: 4, right: 24, left: 4, bottom: 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eef2f6" />
+                <XAxis type="number" hide allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 12, fill: '#60646c' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={120}
+                />
+                <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
+                  formatter={(value) => [formatNumber(Number(value)), 'Comptes']}
+                />
+                <Bar dataKey="count" radius={[0, 7, 7, 0]} maxBarSize={32} background={{ fill: '#f8fafc', radius: 7 }}>
+                  {PROFILE_SEGMENTS.map((segment) => (
+                    <Cell key={segment.key} fill={segment.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <ul className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {PROFILE_SEGMENTS.map((segment) => (
+              <li key={segment.key} className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: segment.color }} />
+                <span className="truncate text-xs text-muted">{segment.label}</span>
+                <span className="ml-auto text-sm font-bold text-ink">{formatNumber(totals[segment.key])}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         <div className="grid gap-4 xl:grid-cols-3">
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-ink">Devis par statut recensé</h3>
