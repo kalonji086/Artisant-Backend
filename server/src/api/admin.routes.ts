@@ -30,7 +30,13 @@ import {
   getBusinessVerifications,
   reviewBusinessVerification,
 } from './business-verification.controller';
-import { resolveLoginSecurityEvent } from './auth-security.controller';
+import {
+  getLoginSecurityEvents,
+  getUserPushDevices,
+  removeUserPushDevice,
+  restoreUserPushDevice,
+  resolveLoginSecurityEvent,
+} from './auth-security.controller';
 import {
   listConversations,
   getConversationMessages,
@@ -93,7 +99,11 @@ router.get('/stats', getAdminStats);
 router.get('/users', getUsers);
 router.patch('/users/:id/role', updateUserRole);
 router.patch('/users/:id/block', updateUserBlockedStatus);
+router.get('/auth-security-events', getLoginSecurityEvents);
 router.patch('/auth-security-events/:id/resolve', resolveLoginSecurityEvent);
+router.get('/users/:id/push-devices', getUserPushDevices);
+router.delete('/users/:id/push-devices/:deviceRef', removeUserPushDevice);
+router.patch('/users/:id/push-devices/:deviceRef/restore', restoreUserPushDevice);
 router.delete('/users/:id', deleteUser);
 
 /**

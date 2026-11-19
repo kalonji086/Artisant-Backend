@@ -6,6 +6,7 @@ import { initials } from '../utils/format';
 import SecurityLoginAlerts from './SecurityLoginAlerts';
 import {
   BriefcaseIcon,
+  AlertIcon,
   ChatIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
@@ -66,7 +67,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: 'Système',
-    items: [{ to: '/parametres', label: 'Paramètres', icon: <SettingsIcon className={icon} /> }],
+    items: [
+      { to: '/securite', label: 'Centre de sécurité', icon: <AlertIcon className={icon} /> },
+      { to: '/parametres', label: 'Paramètres', icon: <SettingsIcon className={icon} /> },
+    ],
   },
 ];
 

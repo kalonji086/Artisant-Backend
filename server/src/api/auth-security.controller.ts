@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import { Request, Response } from 'express';
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
@@ -185,5 +185,207 @@ export async function resolveLoginSecurityEvent(req: Request, res: Response) {
     return res.status(500).json({ error: 'Impossible de clôturer cette alerte.' });
   }
   if (!data) return res.status(404).json({ error: 'Alerte introuvable ou déjà clôturée.' });
+  logger.info('Alerte de sécurité clôturée par un administrateur', { adminId, eventId });
   return res.json({ success: true });
+}
+
+export async function getLoginSecurityEvents(req: Request, res: Response) {
+  const status = typeof req.query.status === 'string' ? req.query.status : 'open';
+  const search = typeof req.query.search === 'string'
+    ? req.query.search.replace(/[(),]/g, ' ').trim().slice(0, 120)
+    : '';
+  const page = Number(req.query.page ?? 1);
+  const pageSize = Number(req.query.pageSize ?? 20);
+  if (!['open', 'resolved', 'all'].includes(status)) {
+    return res.status(400).json({ error: 'Filtre d’alerte invalide.' });
+  }
+  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) {
+    return res.status(400).json({ error: 'Pagination invalide.' });
+  }
+
+  try {
+    const from = (page - 1) * pageSize;
+    let query = supabase
+      .from('auth_login_security_events')
+      .select('id, created_at, user_id, masked_identifier, ip_address, platform, device_model, failed_attempts, lock_hours, locked_until, resolved_at, resolved_by', { count: 'exact' });
+    if (status === 'open') query = query.is('resolved_at', null);
+    if (status === 'resolved') query = query.not('resolved_at', 'is', null);
+    if (search) query = query.ilike('masked_identifier', `%${search}%`);
+
+    const { data, count, error } = await query
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+
+    const rows = data ?? [];
+    const userIds = [...new Set(rows.flatMap((event) => event.user_id ? [event.user_id] : []))];
+    const profileResult = userIds.length
+      ? await supabase.from('profiles').select('id, full_name, role').in('id', userIds)
+      : { data: [], error: null };
+    if (profileResult.error) throw profileResult.error;
+    const profiles = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile]));
+    const blockedStatuses = await Promise.all(userIds.map(async (userId) => {
+      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
+      if (authError) throw authError;
+      const bannedUntil = authUser.user?.banned_until;
+      return [
+        userId,
+        typeof bannedUntil === 'string' && Date.parse(bannedUntil) > Date.now(),
+      ] as const;
+    }));
+    const blockedById = new Map(blockedStatuses);
+
+    return res.json({
+      data: rows.map((event) => ({
+        ...event,
+        user: event.user_id ? profiles.get(event.user_id) ?? null : null,
+        is_blocked: event.user_id ? blockedById.get(event.user_id) ?? false : false,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total: count ?? 0,
+        totalPages: Math.max(1, Math.ceil((count ?? 0) / pageSize)),
+      },
+    });
+  } catch (error) {
+    logFailure('Chargement du centre de sécurité impossible', error);
+    return res.status(500).json({ error: 'Impossible de charger les alertes de sécurité.' });
+  }
+}
+
+function getDeviceReference(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function maskPushToken(token: string): string {
+  return `••••${token.slice(-4)}`;
+}
+
+export async function getUserPushDevices(req: Request, res: Response) {
+  const userId = req.params.id;
+  if (!UUID_RE.test(userId)) return res.status(400).json({ error: 'Identifiant utilisateur invalide.' });
+
+  try {
+    const [devicesResult, revocationsResult] = await Promise.all([
+      supabase
+        .from('push_devices')
+        .select('expo_push_token, platform, created_at, updated_at')
+        .eq('user_id', userId),
+      supabase
+        .from('push_device_revocations')
+        .select('token_hash, token_hint, platform, revoked_at')
+        .eq('user_id', userId),
+    ]);
+    if (devicesResult.error) throw devicesResult.error;
+    if (revocationsResult.error) throw revocationsResult.error;
+
+    const revocations = revocationsResult.data ?? [];
+    const revokedByHash = new Map(revocations.map((item) => [item.token_hash, item]));
+    const activeDevices = (devicesResult.data ?? [])
+      .filter((device) => !revokedByHash.has(getDeviceReference(device.expo_push_token)))
+      .map((device) => ({
+        device_ref: getDeviceReference(device.expo_push_token),
+        token_hint: maskPushToken(device.expo_push_token),
+        platform: device.platform,
+        created_at: device.created_at,
+        updated_at: device.updated_at,
+        revoked_at: null,
+      }));
+    const revokedDevices = revocations.map((device) => ({
+      device_ref: device.token_hash,
+      token_hint: device.token_hint,
+      platform: device.platform,
+      created_at: null,
+      updated_at: device.revoked_at,
+      revoked_at: device.revoked_at,
+    }));
+    return res.json({
+      data: [...activeDevices, ...revokedDevices]
+        .sort((left, right) => right.updated_at.localeCompare(left.updated_at)),
+    });
+  } catch (error) {
+    logFailure('Chargement des appareils push impossible', error);
+    return res.status(500).json({ error: 'Impossible de charger les appareils enregistrés.' });
+  }
+}
+
+export async function removeUserPushDevice(req: Request, res: Response) {
+  const userId = req.params.id;
+  const deviceRef = req.params.deviceRef;
+  if (!UUID_RE.test(userId) || !/^[0-9a-f]{64}$/i.test(deviceRef)) {
+    return res.status(400).json({ error: 'Identifiant utilisateur ou appareil invalide.' });
+  }
+
+  try {
+    const { data: devices, error: listError } = await supabase
+      .from('push_devices')
+      .select('expo_push_token, platform')
+      .eq('user_id', userId);
+    if (listError) throw listError;
+    const device = (devices ?? []).find(
+      (item) => getDeviceReference(item.expo_push_token) === deviceRef
+    );
+    if (!device) return res.status(404).json({ error: 'Appareil enregistré introuvable.' });
+
+    const { error: revokeError } = await supabase
+      .from('push_device_revocations')
+      .upsert({
+        user_id: userId,
+        token_hash: deviceRef,
+        token_hint: maskPushToken(device.expo_push_token),
+        platform: device.platform,
+        revoked_at: new Date().toISOString(),
+        revoked_by: (req as AuthenticatedRequest).user?.id ?? null,
+      }, { onConflict: 'user_id,token_hash' });
+    if (revokeError) throw revokeError;
+
+    const { data, error } = await supabase
+      .from('push_devices')
+      .delete()
+      .eq('user_id', userId)
+      .eq('expo_push_token', device.expo_push_token)
+      .select('expo_push_token')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Appareil enregistré introuvable.' });
+    logger.info('Appareil push retiré par un administrateur', {
+      adminId: (req as AuthenticatedRequest).user?.id,
+      userId,
+      deviceRef,
+    });
+    return res.json({ removed: true, device_ref: deviceRef });
+  } catch (error) {
+    logFailure('Suppression d’un appareil push impossible', error);
+    return res.status(500).json({ error: 'Impossible de supprimer cet appareil enregistré.' });
+  }
+}
+
+export async function restoreUserPushDevice(req: Request, res: Response) {
+  const userId = req.params.id;
+  const deviceRef = req.params.deviceRef;
+  if (!UUID_RE.test(userId) || !/^[0-9a-f]{64}$/i.test(deviceRef)) {
+    return res.status(400).json({ error: 'Identifiant utilisateur ou appareil invalide.' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('push_device_revocations')
+      .delete()
+      .eq('user_id', userId)
+      .eq('token_hash', deviceRef)
+      .select('token_hash')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Révocation de cet appareil introuvable.' });
+    logger.info('Appareil push réautorisé par un administrateur', {
+      adminId: (req as AuthenticatedRequest).user?.id,
+      userId,
+      deviceRef,
+    });
+    return res.json({ restored: true, device_ref: deviceRef });
+  } catch (error) {
+    logFailure('Réautorisation d’un appareil push impossible', error);
+    return res.status(500).json({ error: 'Impossible de réautoriser cet appareil.' });
+  }
 }

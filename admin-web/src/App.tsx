@@ -12,6 +12,7 @@ import LiveMap from './pages/LiveMap';
 import Quotes from './pages/Quotes';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
+import SecurityCenter from './pages/SecurityCenter';
 import Support from './pages/Support';
 import Users from './pages/Users';
 
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="demandes-employeur" element={<EmployerRequests />} />
         <Route path="support" element={<Support />} />
         <Route path="parametres" element={<Settings />} />
+        <Route path="securite" element={<SecurityCenter />} />
         <Route path="emails" element={<Emails />} />
         <Route path="campagnes" element={<Campaigns />} />
         <Route path="*" element={<Navigate to="/" replace />} />

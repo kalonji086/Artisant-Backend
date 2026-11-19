@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
@@ -20,9 +21,14 @@ const handleAppNotification = async (record: JsonRecord) => {
   const body = stringField(record, 'body');
   if (!userId || !title || !body || (kind !== 'message' && kind !== 'quote')) return;
 
-  const [{ data: devices, error: devicesError }, { data: preferences, error: preferencesError }] =
+  const [
+    { data: devices, error: devicesError },
+    { data: revokedDevices, error: revocationsError },
+    { data: preferences, error: preferencesError },
+  ] =
     await Promise.all([
       supabase.from('push_devices').select('expo_push_token').eq('user_id', userId),
+      supabase.from('push_device_revocations').select('token_hash').eq('user_id', userId),
       supabase
         .from('user_preferences')
         .select('notify_messages, notify_quotes')
@@ -31,8 +37,13 @@ const handleAppNotification = async (record: JsonRecord) => {
     ]);
 
   if (devicesError) throw devicesError;
+  if (revocationsError) throw revocationsError;
   if (preferencesError) throw preferencesError;
-  if (!devices?.length) return;
+  const revokedHashes = new Set((revokedDevices ?? []).map(({ token_hash }) => token_hash));
+  const activeDevices = (devices ?? []).filter(({ expo_push_token }) => (
+    !revokedHashes.has(createHash('sha256').update(expo_push_token).digest('hex'))
+  ));
+  if (!activeDevices.length) return;
   if (kind === 'message' && preferences?.notify_messages === false) return;
   if (kind === 'quote' && preferences?.notify_quotes === false) return;
 
@@ -41,7 +52,7 @@ const handleAppNotification = async (record: JsonRecord) => {
   const pushData = { ...data, ...(notificationId ? { notification_id: notificationId } : {}) };
   const failures: Error[] = [];
 
-  await Promise.all(devices.map(async ({ expo_push_token: token }) => {
+  await Promise.all(activeDevices.map(async ({ expo_push_token: token }) => {
     try {
       const tickets = await sendPushNotification(token, title, body, pushData);
       for (const ticket of tickets) {

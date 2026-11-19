@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AdminService } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
@@ -166,6 +167,12 @@ export default function SecurityLoginAlerts() {
           ) : (
             <p className="mt-3 text-xs text-muted">Aucun compte correspondant : aucune action de blocage proposée.</p>
           )}
+          <Link
+            to="/securite"
+            className="mt-3 inline-flex rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-ink transition hover:border-brand hover:text-brand"
+          >
+            Ouvrir le centre de sécurité
+          </Link>
         </article>
       ))}
     </aside>

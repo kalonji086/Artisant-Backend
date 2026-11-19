@@ -2,6 +2,7 @@ import axios from 'axios';
 import { supabase } from './supabase';
 import type {
   AdminStats,
+  AuthLoginSecurityEvent,
   ArtisanBusinessModule,
   ArtisanBusinessVerification,
   ArtisanBusinessVerificationStatus,
@@ -11,6 +12,7 @@ import type {
   Profile,
   ProfileRole,
   Quote,
+  UserPushDevice,
 } from '../types';
 
 const apiClient = axios.create({
@@ -94,8 +96,16 @@ export const AdminService = {
 
   updateUserBlockedStatus: (id: string, blocked: boolean) =>
     api.patch<{ userId: string; blocked: boolean; realtime: boolean; notificationSent: boolean | null }>(`/admin/users/${id}/block`, { blocked }),
+  getAuthLoginSecurityEvents: (params?: { status?: 'open' | 'resolved' | 'all'; search?: string; page?: number; pageSize?: number }) =>
+    apiClient.get<Paginated<AuthLoginSecurityEvent>>('/admin/auth-security-events', { params }),
   resolveAuthSecurityEvent: (id: string) =>
     api.patch<{ success: boolean }>(`/admin/auth-security-events/${id}/resolve`, {}),
+  getUserPushDevices: (id: string) =>
+    apiClient.get<{ data: UserPushDevice[] }>(`/admin/users/${id}/push-devices`),
+  removeUserPushDevice: (id: string, deviceRef: string) =>
+    api.delete<{ removed: boolean; device_ref: string }>(`/admin/users/${id}/push-devices/${deviceRef}`),
+  restoreUserPushDevice: (id: string, deviceRef: string) =>
+    api.patch<{ restored: boolean; device_ref: string }>(`/admin/users/${id}/push-devices/${deviceRef}/restore`, {}),
 
   deleteUser: (id: string) =>
     api.delete<{ userId: string; deleted: boolean }>(`/admin/users/${id}`),

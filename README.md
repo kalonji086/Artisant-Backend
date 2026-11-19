@@ -121,10 +121,14 @@ déployer le backend, l’Admin et l’application mobile. Les changements de dr
 sont propagés au profil et au menu de l’application en temps réel.
 La migration `035_login_security.sql` ajoute une temporisation progressive des
 échecs de connexion, les alertes Admin en temps réel et le contrôle de
-l’unicité des téléphones. L’alerte Admin n’entraîne pas de blocage automatique :
-l’Admin examine l’IP, l’appareil déclaré et l’identifiant masqué, puis peut
-bloquer le compte et notifier son adresse par e-mail. Appliquer 035 après 034
-et déployer le backend, l’Admin et l’application mobile. Définir de préférence
+l’unicité des téléphones. À partir de trois échecs, l’alerte est consultable
+dans le Centre de sécurité Admin (`/securite`), avec historique, blocage ou
+déblocage du compte et clôture de l’alerte. L’Admin peut aussi retirer un
+appareil des notifications push; cette action ne déconnecte pas ses sessions.
+La liste des appareils utilise `push_devices` (migration 021); la migration
+`037_push_device_revocations.sql` conserve les révocations même si l’application
+réinscrit automatiquement le jeton. Appliquer 035 après 034 et 037 après 036,
+avant de déployer le backend et l’Admin. Définir de préférence
 `AUTH_ATTEMPT_HASH_SECRET` avec une clé aléatoire dédiée; à défaut, le backend
 utilise la clé de service Supabase pour hacher les identifiants de limitation.
 Le backend utilise `SUPABASE_ANON_KEY` pour relayer la connexion à Supabase Auth;

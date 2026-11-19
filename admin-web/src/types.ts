@@ -32,6 +32,32 @@ export interface Profile {
   created_at: string;
 }
 
+export interface AuthLoginSecurityEvent {
+  id: string;
+  created_at: string;
+  user_id: string | null;
+  masked_identifier: string;
+  ip_address: string | null;
+  platform: string | null;
+  device_model: string | null;
+  failed_attempts: number;
+  lock_hours: number;
+  locked_until: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  user: Pick<Profile, 'id' | 'full_name' | 'role'> | null;
+  is_blocked: boolean;
+}
+
+export interface UserPushDevice {
+  device_ref: string;
+  token_hint: string;
+  platform: 'ios' | 'android' | 'unknown';
+  created_at: string | null;
+  updated_at: string;
+  revoked_at: string | null;
+}
+
 export interface Quote {
   id: string;
   client_id: string;
