@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import {
+  createBusinessClientContract,
+  listBusinessClientContracts,
+  listEligibleBusinessClientQuotes,
+  listMyBusinessClientContracts,
+  signBusinessClientContract,
+} from './business-client-contract.controller';
+import {
   addBusinessFavorite,
   applyToBusinessJob,
   createBusinessContract,
@@ -64,6 +71,12 @@ router.get('/contracts/my', listMyBusinessContracts);
 router.post('/contracts', createBusinessContract);
 router.post('/contracts/:id/sign', signBusinessContract);
 router.post('/contracts/:id/send', sendBusinessContract);
+
+router.get('/client-contracts/eligible-quotes', listEligibleBusinessClientQuotes);
+router.get('/client-contracts/my', listMyBusinessClientContracts);
+router.get('/client-contracts', listBusinessClientContracts);
+router.post('/client-contracts', createBusinessClientContract);
+router.post('/client-contracts/:id/sign', signBusinessClientContract);
 
 router.get('/payments', listBusinessPayments);
 router.post('/payments', createBusinessPayment);

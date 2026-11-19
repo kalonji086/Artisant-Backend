@@ -1079,54 +1079,66 @@ export async function inviteBusinessMember(req: Request, res: Response) {
   if (!workspace) return;
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
+
+  const { data: memberUserId, error: lookupError } = await supabase.rpc('find_auth_user_for_login', { p_email: email });
+  if (lookupError) return logDatabaseError('Recherche du compte Artisan impossible', lookupError, res);
+  if (typeof memberUserId !== 'string') {
+    return res.status(400).json({ error: 'Seuls les comptes Artisan actifs peuvent être invités.' });
+  }
+
+  const { data: authResult, error: authError } = await supabase.auth.admin.getUserById(memberUserId);
+  if (authError) {
+    logger.error('Vérification du compte Artisan impossible', { error: authError.message });
+    return res.status(500).json({ error: 'Impossible de vérifier le compte Artisan.' });
+  }
+  const authUser = authResult.user;
+  const isBanned = Boolean(authUser?.banned_until && Date.parse(authUser.banned_until) > Date.now());
+  if (
+    !authUser
+    || authUser.email?.trim().toLowerCase() !== email
+    || !authUser.email_confirmed_at
+    || authUser.deleted_at
+    || isBanned
+  ) {
+    return res.status(400).json({ error: 'Seuls les comptes Artisan actifs peuvent être invités.' });
+  }
+
+  const { data: artisan, error: artisanError } = await supabase
+    .from('profiles').select('full_name, role').eq('id', memberUserId).maybeSingle();
+  if (artisanError) return logDatabaseError('Vérification du profil Artisan impossible', artisanError, res);
+  if (!artisan || artisan.role !== 'artisan') {
+    return res.status(400).json({ error: 'Seuls les comptes Artisan actifs peuvent être invités.' });
+  }
+
   const { data: duplicate, error: duplicateError } = await supabase
-    .from('business_members').select('id').eq('email', email).eq('status', 'active').maybeSingle();
+    .from('business_members').select('id').eq('member_user_id', memberUserId).eq('status', 'active').maybeSingle();
   if (duplicateError) return logDatabaseError('Vérification de l’invitation impossible', duplicateError, res);
-  if (duplicate) return res.status(409).json({ error: 'Cette adresse e-mail appartient déjà à un employé actif.' });
+  if (duplicate) return res.status(409).json({ error: 'Ce compte Artisan est déjà membre d’une entreprise.' });
 
   const { data: business, error: businessError } = await supabase
-    .from('business_profiles').select('company_name').eq('owner_id', workspace.ownerId).single();
+    .from('business_profiles').select('company_name, business_type, contact_person, contact_email, contact_phone').eq('owner_id', workspace.ownerId).single();
   if (businessError) return logDatabaseError('Lecture du nom de l’entreprise impossible', businessError, res);
+  const { data: inviter, error: inviterError } = await supabase
+    .from('profiles').select('full_name').eq('id', workspace.userId).maybeSingle();
+  if (inviterError) return logDatabaseError('Lecture du responsable de l’entreprise impossible', inviterError, res);
 
   const redirectTo = process.env.BUSINESS_INVITE_REDIRECT_URL || 'artisant://business-invite';
-  let link = await supabase.auth.admin.generateLink({
-    type: 'invite',
+  const link = await supabase.auth.admin.generateLink({
+    type: 'magiclink',
     email,
     options: { redirectTo },
   });
-  if (
-    link.error
-    && (link.error.code === 'email_exists' || /already (?:been )?registered/i.test(link.error.message))
-  ) {
-    link = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email,
-      options: { redirectTo },
-    });
-  }
-  const memberUserId = link.data.user?.id;
+  const generatedUserId = link.data.user?.id;
   const actionLink = link.data.properties?.action_link;
-  if (link.error || !memberUserId || !actionLink) {
+  if (link.error || generatedUserId !== memberUserId || !actionLink) {
     logger.error('Création du lien d’invitation impossible', {
       code: link.error?.code,
       error: link.error?.message ?? 'Utilisateur ou lien manquant',
     });
-    return res.status(502).json({ error: 'Impossible de préparer le lien d’invitation. Vérifiez la configuration Supabase Auth.' });
+    return res.status(502).json({ error: 'Impossible de préparer le lien de connexion de ce compte Artisan.' });
   }
 
-  try {
-    await sendEmail({
-      to: email,
-      subject: 'Invitation à rejoindre une équipe ARTISANTS',
-      htmlContent: `<p>Vous êtes invité(e) à rejoindre l’équipe de ${escapedHtml(business.company_name)} sur ARTISANTS.</p><p><a href="${escapedHtml(actionLink)}">Accepter l’invitation et vous connecter</a></p>`,
-      textContent: `Vous êtes invité(e) à rejoindre l’équipe de ${business.company_name} sur ARTISANTS. Ouvrez ce lien pour accepter l’invitation : ${actionLink}`,
-    });
-  } catch (error) {
-    logger.error('Envoi de l’invitation par e-mail impossible', { error: safeError(error) });
-    return res.status(502).json({ error: 'Le lien d’invitation n’a pas pu être envoyé. Vérifiez la configuration e-mail.' });
-  }
-
-  const { data, error } = await supabase.from('business_members').upsert({
+  const { data: member, error: memberError } = await supabase.from('business_members').upsert({
     owner_id: workspace.ownerId,
     member_user_id: memberUserId,
     email,
@@ -1136,11 +1148,41 @@ export async function inviteBusinessMember(req: Request, res: Response) {
   }, { onConflict: 'owner_id,member_user_id' })
     .select('id, member_user_id, email, role, status, created_at')
     .single();
-  if (error) {
-    if (error.code === '23505') return res.status(409).json({ error: 'Ce compte est déjà lié à une entreprise.' });
-    return logDatabaseError('Enregistrement de l’employé impossible', error, res);
+  if (memberError) {
+    if (memberError.code === '23505') return res.status(409).json({ error: 'Ce compte Artisan est déjà membre d’une entreprise.' });
+    return logDatabaseError('Enregistrement de l’employé impossible', memberError, res);
   }
-  return res.status(201).json({ member: data });
+
+  const inviterName = inviter?.full_name?.trim() || 'Le responsable de l’entreprise';
+  const artisanName = artisan.full_name?.trim() || 'Artisan';
+  const businessType = business.business_type === 'subcontractor' ? 'Sous-traitance' : 'Entreprise';
+  const businessContact = [business.contact_email, business.contact_phone].filter(Boolean).join(' · ')
+    || business.contact_person
+    || business.company_name;
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Invitation à collaborer sur ARTISANTS',
+      htmlContent: `<p>Bonjour ${escapedHtml(artisanName)},</p><p>${escapedHtml(inviterName)} vous invite à collaborer avec <strong>${escapedHtml(business.company_name)}</strong> sur ARTISANTS.</p><ul><li>Type d’espace : ${escapedHtml(businessType)}</li><li>Compte invité : ${escapedHtml(email)}</li><li>Accès : tableau de bord entreprise, Projets, Messages entreprise et Assistance.</li><li>Contact de l’entreprise : ${escapedHtml(String(businessContact))}</li></ul><p>Votre accès est activé. Le module Projets apparaît dans le menu de votre tableau de bord Artisan; si l’application est ouverte, le menu se met à jour en temps réel.</p><p><a href="${escapedHtml(actionLink)}">Ouvrir mon tableau de bord Artisan</a></p><p>Si vous n’attendiez pas cette invitation, vous pouvez ignorer ce message.</p>`,
+      textContent: `Bonjour ${artisanName}, ${inviterName} vous invite à collaborer avec ${business.company_name} (${businessType}) sur ARTISANTS.\nCompte invité : ${email}\nAccès : tableau de bord entreprise, Projets, Messages entreprise et Assistance.\nContact : ${businessContact}\nVotre accès est activé. Le module Projets apparaît dans le menu de votre tableau de bord Artisan et se met à jour en temps réel si l’application est ouverte.\nOuvrir le tableau de bord : ${actionLink}\nSi vous n’attendiez pas cette invitation, ignorez ce message.`,
+    });
+  } catch (error) {
+    logger.error('Envoi de l’invitation par e-mail impossible', { error: safeError(error) });
+    const { error: revokeError } = await supabase.from('business_members')
+      .update({ status: 'revoked' })
+      .eq('id', member.id)
+      .eq('owner_id', workspace.ownerId)
+      .eq('status', 'active');
+    if (revokeError) {
+      logger.error('Révocation de l’accès après échec e-mail impossible', {
+        memberId: member.id,
+        error: revokeError.message,
+      });
+    }
+    return res.status(502).json({ error: 'Le lien d’invitation n’a pas pu être envoyé. Vérifiez la configuration e-mail.' });
+  }
+
+  return res.status(201).json({ member });
 }
 
 export async function revokeBusinessMember(req: Request, res: Response) {

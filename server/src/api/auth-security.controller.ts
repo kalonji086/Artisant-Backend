@@ -101,13 +101,16 @@ export async function loginWithSecurity(req: Request, res: Response) {
     });
 
     if (authResponse.status === 400 || authResponse.status === 401) {
-      const authError = await authResponse.json() as { code?: unknown };
-      if (authError.code === 'invalid_api_key') {
+      let authError: { code?: unknown; error_code?: unknown; message?: unknown } = {};
+      try {
+        authError = await authResponse.json() as typeof authError;
+      } catch {
+        logger.warn('Réponse de refus Supabase Auth non JSON lors d’une connexion.');
+      }
+      const authCode = authError.code ?? authError.error_code;
+      if (authCode === 'invalid_api_key' || /invalid api key/i.test(String(authError.message ?? ''))) {
         logger.error('La clé publique Supabase configurée pour la connexion est invalide.');
         return res.status(503).json({ error: 'Le service de connexion n’est pas correctement configuré.' });
-      }
-      if (authError.code !== 'invalid_credentials' && authError.code !== 'invalid_grant') {
-        return res.status(401).json({ error: 'Adresse e-mail ou mot de passe incorrect.' });
       }
       const { data: attemptData, error: attemptError } = await supabase.rpc(
         'record_auth_login_failure',

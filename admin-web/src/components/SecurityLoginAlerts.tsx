@@ -21,6 +21,8 @@ const RECENT_WINDOW_MS = 60 * 60 * 1000;
 export default function SecurityLoginAlerts() {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [blockingId, setBlockingId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [realtimeError, setRealtimeError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -36,8 +38,10 @@ export default function SecurityLoginAlerts() {
         if (!active) return;
         if (error) {
           console.error('[admin] Chargement des alertes de connexion impossible:', error);
+          setLoadError('Les alertes de connexion sont indisponibles. Vérifiez que la migration 035 est appliquée et que votre session Admin est valide.');
           return;
         }
+        setLoadError(null);
         setEvents((current) => {
           const merged = new Map<string, SecurityEvent>(
             (data ?? []).map((item) => [item.id, item as SecurityEvent])
@@ -65,8 +69,11 @@ export default function SecurityLoginAlerts() {
         }
       })
       .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeError(null);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.warn('[admin] Alertes de sécurité en temps réel indisponibles:', status);
+          setRealtimeError('La réception en temps réel des alertes est indisponible. Vérifiez la publication Supabase Realtime et rechargez cette page.');
         }
       });
 
@@ -112,10 +119,16 @@ export default function SecurityLoginAlerts() {
     }
   };
 
-  if (!events.length) return null;
+  const alertError = loadError ?? realtimeError;
+  if (!events.length && !alertError) return null;
 
   return (
     <aside className="fixed right-4 top-20 z-50 flex w-[min(26rem,calc(100vw-2rem))] flex-col gap-3" aria-label="Alertes de sécurité">
+      {alertError && (
+        <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm font-medium text-rose-800 shadow-xl">
+          {alertError}
+        </div>
+      )}
       {events.map((event) => (
         <article key={event.id} className="rounded-xl border border-amber-300 bg-white p-4 shadow-xl">
           <div className="flex items-start justify-between gap-3">
