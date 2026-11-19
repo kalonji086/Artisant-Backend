@@ -261,7 +261,7 @@ export const getUsers = async (req: Request, res: Response) => {
   try {
     let query = supabase
       .from('profiles')
-      .select('id, full_name, phone, role, avatar_url, is_available, rating, address, city, profession, description, created_at', {
+      .select('id, full_name, phone, role, business_type, avatar_url, is_available, rating, address, city, profession, description, created_at', {
         count: 'exact',
       });
 

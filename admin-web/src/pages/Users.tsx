@@ -30,6 +30,8 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [blockingId, setBlockingId] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const stats = useStats();
 
   // Debounce de la recherche (400 ms)
@@ -83,10 +85,45 @@ export default function Users() {
 
   const selected = result.data.find((p) => p.id === selectedId) ?? null;
 
+  const updateBlockedStatus = async (profile: Profile, blocked: boolean) => {
+    if (
+      blocked
+      && !window.confirm(`Bloquer le compte de ${profile.full_name ?? 'cet utilisateur'} ?`)
+    ) return null;
+
+    setBlockingId(profile.id);
+    try {
+      return await AdminService.updateUserBlockedStatus(profile.id, blocked);
+    } finally {
+      setBlockingId(null);
+    }
+  };
+
+  const handleListToggle = async (profile: Profile, blocked: boolean) => {
+    setActionNotice(null);
+    try {
+      const response = await updateBlockedStatus(profile, blocked);
+      if (!response) return;
+      await load(true);
+      if (!response.realtime) {
+        setActionNotice({ type: 'error', message: 'Compte modifié, mais la mise à jour en temps réel n’a pas pu être signalée.' });
+      } else if (response.notificationSent === false) {
+        setActionNotice({ type: 'error', message: 'Compte bloqué, mais la notification par e-mail n’a pas pu être envoyée.' });
+      } else {
+        setActionNotice({
+          type: 'success',
+          message: blocked ? 'Compte bloqué.' : 'Compte débloqué.',
+        });
+      }
+    } catch (err) {
+      setActionNotice({ type: 'error', message: apiErrorMessage(err, 'Impossible de modifier cet utilisateur.') });
+    }
+  };
+
   return (
     <div>
       <PageHeader
-        title="Utilisateurs"
+        title="Gestion des utilisateurs"
         subtitle="Comptes clients et artisans de la plateforme"
         icon={<UsersIcon className="h-6 w-6" />}
       />
@@ -102,27 +139,42 @@ export default function Users() {
 
       <AccountDeletionRequests />
 
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="relative flex-1">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par nom ou adresse…"
-            aria-label="Rechercher un utilisateur"
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-3 pl-9 text-sm text-ink shadow-sm placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+      <section className="mb-5 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5" aria-label="Rechercher et filtrer les utilisateurs">
+        <div className="mb-4">
+          <h2 className="text-sm font-bold text-ink">Répertoire des comptes</h2>
+          <p className="mt-1 text-xs text-muted">{formatNumber(result.pagination.total)} compte(s) correspondent aux filtres.</p>
+        </div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative min-w-0 flex-1">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher par nom, e-mail, téléphone ou ville…"
+              aria-label="Rechercher un utilisateur"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-3 pl-9 text-sm text-ink shadow-sm placeholder:text-gray-400 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+          <FilterTabs
+            options={ROLE_OPTIONS}
+            value={role}
+            onChange={(v) => {
+              setRole(v);
+              setPage(1);
+            }}
           />
         </div>
-        <FilterTabs
-          options={ROLE_OPTIONS}
-          value={role}
-          onChange={(v) => {
-            setRole(v);
-            setPage(1);
-          }}
-        />
-      </div>
+      </section>
+
+      {actionNotice ? (
+        <p
+          role={actionNotice.type === 'error' ? 'alert' : 'status'}
+          className={`mb-4 rounded-xl px-4 py-3 text-sm font-medium ${actionNotice.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}
+        >
+          {actionNotice.message}
+        </p>
+      ) : null}
 
       {loading ? (
         <LoadingBlock label="Chargement des utilisateurs…" />
@@ -134,70 +186,72 @@ export default function Users() {
           hint="Essayez une autre recherche ou changez le filtre de rôle."
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100 text-sm">
-              <thead className="bg-gradient-to-r from-brand-light/70 to-gray-50 text-left text-xs font-semibold tracking-wide text-muted uppercase">
-                <tr>
-                  <th className="px-4 py-3">Utilisateur</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Rôle</th>
-                  <th className="px-4 py-3">Statut du compte</th>
-                  <th className="px-4 py-3">Métier</th>
-                  <th className="px-4 py-3">Disponibilité</th>
-                  <th className="px-4 py-3">Note</th>
-                  <th className="px-4 py-3">Téléphone</th>
-                  <th className="px-4 py-3">Inscrit le</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {result.data.map((profile) => (
-                  <tr
-                    key={profile.id}
+        <div className="grid gap-4 xl:grid-cols-2">
+          {result.data.map((profile) => (
+            <article key={profile.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-brand/30 hover:shadow-md sm:p-5">
+              <div className="flex items-start gap-3">
+                <UserAvatar profile={profile} />
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
                     onClick={() => setSelectedId(profile.id)}
-                    className="cursor-pointer transition hover:bg-brand-light/40"
+                    className="truncate text-left text-base font-bold text-ink hover:text-brand"
                   >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <UserAvatar profile={profile} />
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-ink">
-                            {profile.full_name ?? 'Sans nom'}
-                          </p>
-                          <p className="truncate text-xs text-muted">{profile.address ?? '—'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted">{profile.email ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge value={profile.role ?? 'client'} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${profile.is_blocked ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                        {profile.is_blocked ? 'Bloqué' : 'Actif'}
+                    {profile.full_name ?? 'Sans nom'}
+                  </button>
+                  <p className="mt-0.5 truncate text-xs text-muted">{profile.email ?? profile.phone ?? 'Coordonnées non renseignées'}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <StatusBadge value={profile.role ?? 'client'} />
+                    {profile.role === 'artisan' && profile.business_type ? (
+                      <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                        {profile.business_type === 'enterprise' ? 'Entreprise' : 'Sous-traitance'}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted">{profile.role === 'artisan' ? (profile.profession ?? '—') : '—'}</td>
-                    <td className="px-4 py-3">
-                      {profile.role === 'artisan' ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink">
-                          <span className={`h-2 w-2 rounded-full ${profile.is_available ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-                          {profile.is_available ? 'Disponible' : 'Indisponible'}
-                        </span>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-muted">
-                      {profile.rating !== null ? `${Number(profile.rating).toFixed(1)} ★` : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-muted">{profile.phone ?? '—'}</td>
-                    <td className="px-4 py-3 text-muted">{formatDate(profile.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    ) : null}
+                    {profile.role === 'artisan' ? (
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${profile.is_available ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${profile.is_available ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                        {profile.is_available ? 'Disponible' : 'Indisponible'}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                {profile.rating !== null ? (
+                  <span className="shrink-0 rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">{Number(profile.rating).toFixed(1)} ★</span>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-gray-50 p-3 text-xs sm:grid-cols-3">
+                <div className="min-w-0">
+                  <p className="text-muted">Métier</p>
+                  <p className="mt-1 truncate font-semibold text-ink">{profile.role === 'artisan' ? profile.profession ?? 'Non renseigné' : 'Client'}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-muted">Ville</p>
+                  <p className="mt-1 truncate font-semibold text-ink">{profile.city ?? 'Non renseignée'}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-muted">Inscription</p>
+                  <p className="mt-1 truncate font-semibold text-ink">{formatDate(profile.created_at)}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <AccountSwitch
+                  checked={!profile.is_blocked}
+                  disabled={blockingId !== null}
+                  label={`Accès au compte de ${profile.full_name ?? 'cet utilisateur'}`}
+                  onChange={(active) => void handleListToggle(profile, !active)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(profile.id)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-ink transition hover:border-brand hover:text-brand"
+                >
+                  Voir le profil
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
       )}
 
@@ -211,6 +265,7 @@ export default function Users() {
           profile={selected}
           onClose={() => setSelectedId(null)}
           onRefresh={() => load(true)}
+          onToggleBlocked={(blocked) => updateBlockedStatus(selected, blocked)}
           onDeleted={async () => {
             setSelectedId(null);
             await load(true);
@@ -243,15 +298,51 @@ function UserAvatar({ profile, large = false }: { profile: Profile; large?: bool
   );
 }
 
+function AccountSwitch({
+  checked,
+  disabled = false,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div>
+        <p className="text-xs font-semibold text-ink">Accès au compte</p>
+        <p className={`mt-0.5 text-xs font-medium ${checked ? 'text-emerald-700' : 'text-red-700'}`}>
+          {checked ? 'Actif' : 'Bloqué'}
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${checked ? 'bg-emerald-500' : 'bg-red-400'}`}
+      >
+        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+      </button>
+    </div>
+  );
+}
+
 function UserDetails({
   profile,
   onClose,
   onRefresh,
+  onToggleBlocked,
   onDeleted,
 }: {
   profile: Profile;
   onClose: () => void;
   onRefresh: () => Promise<void>;
+  onToggleBlocked: (blocked: boolean) => Promise<unknown>;
   onDeleted: () => Promise<void>;
 }) {
   const [nextRole, setNextRole] = useState<ProfileRole>(profile.role === 'artisan' ? 'artisan' : 'client');
@@ -287,6 +378,7 @@ function UserDetails({
     setActionSuccess(null);
     try {
       const result = await action();
+      if (result === null) return;
       await onRefresh();
       if (
         typeof result === 'object'
@@ -333,78 +425,98 @@ function UserDetails({
         role="dialog"
         aria-label="Détails de l'utilisateur"
         onClick={(e) => e.stopPropagation()}
-        className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"
+        className="h-full w-full max-w-lg overflow-y-auto bg-gray-50 shadow-2xl"
       >
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-brand p-6 text-white">
+          <div className="mb-6 flex justify-end">
+            <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-lg bg-white/10 p-2 text-white transition hover:bg-white/20">
+              ✕
+            </button>
+          </div>
+          <div className="flex items-center gap-4">
             <UserAvatar profile={profile} large />
-            <div>
-              <h2 className="text-lg font-bold text-ink">{profile.full_name ?? 'Sans nom'}</h2>
-              <StatusBadge value={profile.role ?? 'client'} />
+            <div className="min-w-0">
+              <h2 className="truncate text-xl font-bold">{profile.full_name ?? 'Sans nom'}</h2>
+              <p className="mt-1 truncate text-sm text-white/70">{profile.email ?? profile.phone ?? 'Coordonnées non renseignées'}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <StatusBadge value={profile.role ?? 'client'} />
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${profile.is_blocked ? 'bg-red-400/20 text-red-100' : 'bg-emerald-400/20 text-emerald-100'}`}>
+                  {profile.is_blocked ? 'Bloqué' : 'Actif'}
+                </span>
+                {profile.business_type ? (
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white">
+                    {profile.business_type === 'enterprise' ? 'Entreprise' : 'Sous-traitance'}
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
-            ✕
-          </button>
         </div>
-        <dl className="divide-y divide-gray-100 text-sm">
-          {rows.map(([label, value]) => (
-            <div key={label} className="flex justify-between gap-4 py-3">
-              <dt className="text-muted">{label}</dt>
-              <dd className="text-right font-medium break-words text-ink">{value}</dd>
+        <div className="space-y-4 p-4 sm:p-6">
+          <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" aria-label="Informations du compte">
+            <h3 className="mb-2 text-sm font-bold text-ink">Informations du compte</h3>
+            <dl className="divide-y divide-gray-100 text-sm">
+              {rows.map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4 py-2.5">
+                  <dt className="shrink-0 text-muted">{label}</dt>
+                  <dd className="text-right font-medium break-words text-ink">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+          <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" aria-label="Gestion du compte">
+            <h3 className="mb-4 text-sm font-bold text-ink">Gestion du compte</h3>
+            <div className="mb-5 flex items-center justify-between gap-4 rounded-xl bg-gray-50 p-3">
+              <div>
+                <p className="text-sm font-semibold text-ink">Accès à la plateforme</p>
+                <p className="mt-1 text-xs text-muted">Désactivez ou réactivez l’accès de cet utilisateur.</p>
+              </div>
+              <AccountSwitch
+                checked={!profile.is_blocked}
+                disabled={actionLoading}
+                label={`Accès au compte de ${profile.full_name ?? 'cet utilisateur'}`}
+                onChange={(active) => void runAction(
+                  () => onToggleBlocked(!active),
+                  active ? 'Compte débloqué.' : 'Compte bloqué.'
+                )}
+              />
             </div>
-          ))}
-        </dl>
-        <section className="mt-6 border-t border-gray-100 pt-5" aria-label="Gestion du compte">
-          <h3 className="mb-3 text-sm font-semibold text-ink">Gestion du compte</h3>
-          <label className="mb-2 block text-xs font-medium text-muted" htmlFor="user-role">Rôle</label>
-          <div className="flex gap-2">
-            <select
-              id="user-role"
-              value={nextRole}
-              disabled={actionLoading}
-              onChange={(event) => setNextRole(event.target.value === 'artisan' ? 'artisan' : 'client')}
-              className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-ink disabled:opacity-60"
-            >
-              <option value="client">Client</option>
-              <option value="artisan">Artisan</option>
-            </select>
-            <button
-              type="button"
-              disabled={actionLoading || nextRole === profile.role}
-              onClick={() => void runAction(
-                () => AdminService.updateUserRole(profile.id, nextRole),
-                'Rôle mis à jour.'
-              )}
-              className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Modifier
-            </button>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={() => void runAction(
-                () => AdminService.updateUserBlockedStatus(profile.id, !profile.is_blocked),
-                profile.is_blocked ? 'Compte débloqué.' : 'Compte bloqué.'
-              )}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${profile.is_blocked ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-amber-50 text-amber-800 hover:bg-amber-100'}`}
-            >
-              {profile.is_blocked ? 'Débloquer le compte' : 'Bloquer le compte'}
-            </button>
+            <label className="mb-2 block text-xs font-medium text-muted" htmlFor="user-role">Rôle du compte</label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <select
+                id="user-role"
+                value={nextRole}
+                disabled={actionLoading}
+                onChange={(event) => setNextRole(event.target.value === 'artisan' ? 'artisan' : 'client')}
+                className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-ink disabled:opacity-60"
+              >
+                <option value="client">Client</option>
+                <option value="artisan">Artisan</option>
+              </select>
+              <button
+                type="button"
+                disabled={actionLoading || nextRole === profile.role}
+                onClick={() => void runAction(
+                  () => AdminService.updateUserRole(profile.id, nextRole),
+                  'Rôle mis à jour.'
+                )}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Enregistrer le rôle
+              </button>
+            </div>
             <button
               type="button"
               disabled={actionLoading}
               onClick={() => void handleDelete()}
-              className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-4 w-full rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Supprimer l’utilisateur
             </button>
-          </div>
-          {actionError ? <p role="alert" className="mt-3 text-sm text-red-700">{actionError}</p> : null}
-          {actionSuccess ? <p role="status" className="mt-3 text-sm text-emerald-700">{actionSuccess}</p> : null}
-        </section>
+            {actionError ? <p role="alert" className="mt-3 text-sm text-red-700">{actionError}</p> : null}
+            {actionSuccess ? <p role="status" className="mt-3 text-sm text-emerald-700">{actionSuccess}</p> : null}
+          </section>
+        </div>
       </aside>
     </div>
   );
