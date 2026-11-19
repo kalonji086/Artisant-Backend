@@ -58,14 +58,6 @@ const STATUS_LABELS: Record<ArtisanBusinessVerificationStatus, string> = {
   revoked: 'Retirée',
 };
 
-const STATUS_CLASSES: Record<ArtisanBusinessVerificationStatus, string> = {
-  pending: 'bg-amber-50 text-amber-800',
-  in_review: 'bg-blue-50 text-blue-800',
-  approved: 'bg-emerald-50 text-emerald-800',
-  rejected: 'bg-rose-50 text-rose-800',
-  revoked: 'bg-slate-100 text-slate-700',
-};
-
 type Flash = { tone: 'ok' | 'error'; message: string } | null;
 
 export default function ArtisanBusinessVerifications() {
